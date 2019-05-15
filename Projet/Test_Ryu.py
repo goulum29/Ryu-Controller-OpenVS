@@ -11,6 +11,7 @@ from ryu.lib.packet import ether_types
 
 class L2Switch(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
+	print("Début")
 
     def __init__(self, *args, **kwargs):
         super(L2Switch, self).__init__(*args, **kwargs)
