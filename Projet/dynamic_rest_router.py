@@ -593,21 +593,6 @@ class Router(dict):
                 hub.sleep(1)
 
             hub.sleep(CHK_ROUTING_TBL_INTERVAL)
-    #DEBUT MODIFICATION
-    #Création de la fonction permettant d'envoyer des packet hello
-    #Les paquet hello seront des paquet udp envoyé sur le port 6000
-
-    def hello_sender(self):
-        payload_chaine = "Hello"
-        pkt = packet.Packet()
-        eth_pkt = ethernet.ethernet('00:00:00:00:00:01', '00:00:00:00:00:02')
-        ip_pkt = ipv4.ipv4(src='172.28.3.1', dst='172.28.3.2', tos=192, identification=26697, proto=inet.IPPROTO_UDP)
-        pkt.add_protocol(ip_pkt)
-        udp_pkt = udp.udp(49000, 6000)
-        pkt.add_protocol(udp_pkt)
-        eq_(len(pkt.protocols), 3)
-        pkt.serialize(payload_chaine)
-        eq_(pkt.data, self.data)
 
 
 class VlanRouter(object):
@@ -1597,8 +1582,26 @@ class OfCtl(object):
         # Send packet out
         self.send_packet_out(in_port, self.dp.ofproto.OFPP_IN_PORT,
                              pkt.data, data_str=str(pkt))
+        
+        #DEBUT MODIFICATION
+        #Création de la fonction permettant d'envoyer des packet hello
+        #Les paquet hello seront des paquet udp envoyé sur le port 6000
+
+    def hello_sender(self):
+        payload_chaine = "Hello"
+        pkt = packet.Packet()
+        eth_pkt = ethernet.ethernet('00:00:00:00:00:01', '00:00:00:00:00:02')#Adresse mac source&Dest
+        ip_pkt = ipv4.ipv4(src='192.168.12.1', dst='192.168.12.2', tos=192, identification=26697, proto=inet.IPPROTO_UDP)#Adresse ip_source&dest
+        pkt.add_protocol(ip_pkt)
+        udp_pkt = udp.udp(49000, 6000)#PortSource&Dst
+        pkt.add_protocol(udp_pkt)
+        eq_(len(pkt.protocols),3)
+        pkt.serialize()
+        self.dp.send_packet_out()
+
 
     def send_packet_out(self, in_port, output, data, data_str=None):
+        print("On rentre dans la fonction send_packet_out")
         actions = [self.dp.ofproto_parser.OFPActionOutput(output, 0)]
         self.dp.send_packet_out(buffer_id=UINT32_MAX, in_port=in_port,
                                 actions=actions, data=data)
