@@ -1582,10 +1582,6 @@ class OfCtl(object):
         # Send packet out
         self.send_packet_out(in_port, self.dp.ofproto.OFPP_IN_PORT,
                              pkt.data, data_str=str(pkt))
-        
-        #DEBUT MODIFICATION
-        #Création de la fonction permettant d'envoyer des packet hello
-        #Les paquet hello seront des paquet udp envoyé sur le port 6000
 
     def hello_sender(self):
         payload_chaine = "Hello"
@@ -1600,8 +1596,8 @@ class OfCtl(object):
         self.dp.send_packet_out()
 
 
+        
     def send_packet_out(self, in_port, output, data, data_str=None):
-        print("On rentre dans la fonction send_packet_out")
         actions = [self.dp.ofproto_parser.OFPActionOutput(output, 0)]
         self.dp.send_packet_out(buffer_id=UINT32_MAX, in_port=in_port,
                                 actions=actions, data=data)
