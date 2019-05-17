@@ -593,7 +593,22 @@ class Router(dict):
                 hub.sleep(1)
 
             hub.sleep(CHK_ROUTING_TBL_INTERVAL)
+    #DEBUT MODIFICATION
+    #Création de la fonction permettant d'envoyer des packet hello
+    #Les paquet hello seront des paquet udp envoyé sur le port 6000
 
+    def hello_sender(self):
+
+        message = "Hello"
+        packet = Packet(msg.data)
+        ethernet = packet.get_protocol(ryu.lib.packet.ethernet.ethernet)
+        ipv4 = packet.get_protocol(ryu.lib.packet.ipv4.ipv4)
+        udp = packet.get_protocol(ryu.lib.packet.udp.udp)
+
+        while True:
+        #Envoie de packet udp aux remise directe
+        for vlan_router in self.values();
+        #Fin modification
 
 class VlanRouter(object):
     def __init__(self, vlan_id, dp, port_data, logger):
