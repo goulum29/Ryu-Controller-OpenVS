@@ -598,17 +598,17 @@ class Router(dict):
     #Les paquet hello seront des paquet udp envoyé sur le port 6000
 
     def hello_sender(self):
+        payload_chaine = "Hello"
+        pkt = packet.Packet()
+        eth_pkt = ethernet.ethernet('00:00:00:00:00:01', '00:00:00:00:00:02')
+        ip_pkt = ipv4.ipv4(src='172.28.3.1', dst='172.28.3.2', tos=192, identification=26697, proto=inet.IPPROTO_UDP)
+        pkt.add_protocol(ip_pkt)
+        udp_pkt = udp.udp(49000, 6000)
+        pkt.add_protocol(udp_pkt)
+        eq_(len(pkt.protocols), 3)
+        pkt.serialize(payload_chaine)
+        eq_(pkt.data, self.data)
 
-        message = "Hello"
-        packet = Packet(msg.data)
-        ethernet = packet.get_protocol(ryu.lib.packet.ethernet.ethernet)
-        ipv4 = packet.get_protocol(ryu.lib.packet.ipv4.ipv4)
-        udp = packet.get_protocol(ryu.lib.packet.udp.udp)
-
-        while True:
-        #Envoie de packet udp aux remise directe
-        for vlan_router in self.values();
-        #Fin modification
 
 class VlanRouter(object):
     def __init__(self, vlan_id, dp, port_data, logger):
