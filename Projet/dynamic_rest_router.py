@@ -1582,64 +1582,7 @@ class OfCtl(object):
         # Send packet out
         self.send_packet_out(in_port, self.dp.ofproto.OFPP_IN_PORT,
                              pkt.data, data_str=str(pkt))
-
-    def hello_sender(self, in_port, protocol_list, vlan_id,udp_data=None, msg_data=None, src_ip=None):
-        csum = 0
-        offset = ethernet.ethernet._MIN_LEN
-
-        if vlan_id != VLANID_NONE:
-            ether_proto = ether.ETH_TYPE_8021Q
-            pcp = 0
-            cfi = 0
-            vlan_ether = ether.ETH_TYPE_IP
-            v = vlan.vlan(pcp, cfi, vlan_id, vlan_ether)
-            offset += vlan.vlan._MIN_LEN
-        else:
-            ether_proto = ether.ETH_TYPE_IP
-
-        eth = protocol_list[ETHERNET]
-        e = ethernet.ethernet(eth.src, eth.dst, ether_proto)
-
-        ip = protocol_list[IPV4]
-
-        if src_ip is None:
-            src_ip = ip.dst
-        ip_total_length = ip.header_length * 4 + ic._MIN_LEN
-        if ic.data is not None:
-            ip_total_length += ic.data._MIN_LEN
-            if ic.data.data is not None:
-                ip_total_length += + len(ic.data.data)
-        i = ipv4.ipv4(ip.version, ip.header_length, ip.tos,ip_total_length, ip.identification, ip.flags,ip.offset, DEFAULT_TTL, inet.IPPROTO_ICMP, csum,src_ip, ip.src)
-
-        pkt = packet.Packet()
-        pkt.add_protocol(e)
-        if vlan_id != VLANID_NONE:
-            pkt.add_protocol(v)
-        pkt.add_protocol(i)
-        pkt.add_protocol(ic)
-        pkt.serialize()
-
-        # Send packet out
-        self.send_packet_out(in_port, self.dp.ofproto.OFPP_IN_PORT,pkt.data, data_str=str(pkt))
-
-        #Pas bon reprendre des éléments et les ajouter au dessus
-        payload_chaine = "Hello"# Data du paquet ? Utilité ?
-        pkt = packet.Packet()#Création du paquet
-        eth_pkt = ethernet.ethernet('00:00:00:00:00:01', '00:00:00:00:00:02')#Adresse mac source&Dest
-        ip_pkt = ipv4.ipv4(src='192.168.12.1', dst='192.168.12.2', tos=192, identification=26697, proto=inet.IPPROTO_UDP)#Adresse ip_source&dest
-        pkt.add_protocol(eth_pkt)#Ajout du protocol ethernet au paquet
-        if vlan_id != VLANID_NONE:
-            pkt.add_protocol(v)#Aj
-
-        pkt.add_protocol(ip_pkt)#Ajout du protocol ip au paquet
-        udp_pkt = udp.udp(49000, 6000)#PortSource&Dst
-        pkt.add_protocol(udp_pkt)#Ajout du protocol udp au paquet
-        pkt.serialize()#Sérialisation du paquet
-        #Envoi du paquet via le port du router
-        self.dp.send_packet_out(in_port,self.ofproto.OFP_IN_PORT,pkt.data,data_str=str(pkt))
-        
-
-        
+    
     def send_packet_out(self, in_port, output, data, data_str=None):
         actions = [self.dp.ofproto_parser.OFPActionOutput(output, 0)]
         self.dp.send_packet_out(buffer_id=UINT32_MAX, in_port=in_port,
@@ -1677,6 +1620,48 @@ class OfCtl(object):
             del waiters_per_dp[stats.xid]
 
         return msgs
+
+    def hello_sender(self, in_port, protocol_list, vlan_id, src_ip=None):
+        csum = 0
+        offset = ethernet.ethernet._MIN_LEN
+
+        if vlan_id != VLANID_NONE:
+            ether_proto = ether.ETH_TYPE_8021Q
+            pcp = 0
+            cfi = 0
+            vlan_ether = ether.ETH_TYPE_IP
+            v = vlan.vlan(pcp, cfi, vlan_id, vlan_ether)
+            offset += vlan.vlan._MIN_LEN
+        else:
+            ether_proto = ether.ETH_TYPE_IP
+
+        eth = protocol_list[ETHERNET]
+        e = ethernet.ethernet(eth.src, eth.dst, ether_proto)
+
+        ip = protocol_list[IPV4]
+        udp_pkt = udp.udp(49000, 6000)#PortSource&Dst
+
+        if src_ip is None:
+            src_ip = ip.dst
+        ip_total_length = ip.header_length * 4 + udp_pkt._MIN_LEN
+        if udp_pkt.data is not None:
+            ip_total_length += udp_pkt.data._MIN_LEN
+            if udp_pkt.data.data is not None:
+                ip_total_length += + len(udp_pkt.data.data)
+        i = ipv4.ipv4(ip.version, ip.header_length, ip.tos,ip_total_length, ip.identification, ip.flags,ip.offset, DEFAULT_TTL, inet.IPPROTO_UDP, csum,src_ip, ip.src)
+
+        pkt = packet.Packet()# On creer le paquet
+        pkt.add_protocol(e)#Ajout de ethernet
+        if vlan_id != VLANID_NONE:#Si VLAN il y a rajout du taggage
+            pkt.add_protocol(v)
+
+        pkt.add_protocol(i)#Ajout du protocol IP
+        pkt.add_protocol(udp_pkt)# Ajout de UDP
+        pkt.serialize()# Serialization
+
+        #Envoi du paquet via le port du router
+        self.send_packet_out(in_port, self.dp.ofproto.OFPP_IN_PORT, pkt.data, data_str=str(pkt))
+
 
 
 @OfCtl.register_of_version(ofproto_v1_0.OFP_VERSION)
