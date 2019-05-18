@@ -960,10 +960,7 @@ class VlanRouter(object):
                         return
                 elif TCP in header_list or UDP in header_list:
                     self._packetin_tcp_udp(msg, header_list)
-                        #if 1 == 1: #Test si le paquet entrant est de l'udp sur le port 6000
-                            #print("HELLO PACKET RECEIVE")                       
                     return
-            
             else:
                 # Packet to internal host or gateway router.
                 self._packetin_to_node(msg, header_list)
