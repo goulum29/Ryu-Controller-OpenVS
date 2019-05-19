@@ -961,7 +961,7 @@ class VlanRouter(object):
                 elif TCP in header_list or UDP in header_list:
                     self._packetin_tcp_udp(msg, header_list)
                     if header_list[UDP].dst_port == 6000: #Test si le paquet entrant est de l'udp sur le port 6000
-                        print("HELLO PACKET RECEIVE")                       
+                        print("HELLO PACKET RECEIVE") 
                     return
             
             else:
