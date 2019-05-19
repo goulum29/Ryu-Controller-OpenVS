@@ -1,0 +1,38 @@
+#Lancement mininet avec topo de test
+sudo mn --custom ProjetLocal/Topology_test.py --topo mytopo --mac --controller remote -x
+
+#On dit aux switch d'utliser le protocol OpenFlow
+ovs-vsctl set Bridge s1 protocols=OpenFlow13
+ovs-vsctl set Bridge s2 protocols=OpenFlow13
+ovs-vsctl set Bridge s3 protocols=OpenFlow13
+
+#Conf des equipements sur mininet
+h1 ifconfig h1-eth0 192.168.10.1/24
+h2 ifconfig h2-eth0 192.168.20.1/24
+h3 ifconfig h3-eth0 192.168.30.1/24
+
+h1 ip route add 0.0.0.0/0 via 192.168.10.254
+h2 ip route add 0.0.0.0/0 via 192.168.20.254
+h3 ip route add 0.0.0.0/0 via 192.168.30.254
+
+#Lancement du ryu Manager avec l'appli
+ryu-manager nomapplication.py
+
+
+#Ajout des addresses ip sur les interface des routeurs
+curl -X POST -d '{"address":"192.168.10.254/24"}' http://localhost:8080/router/0000000000000001
+curl -X POST -d '{"address":"192.168.20.254/24"}' http://localhost:8080/router/0000000000000002
+curl -X POST -d '{"address":"192.168.30.254/24"}' http://localhost:8080/router/0000000000000003
+curl -X POST -d '{"address":"192.168.13.1/24"}' http://localhost:8080/router/0000000000000001
+curl -X POST -d '{"address":"192.168.13.2/24"}' http://localhost:8080/router/0000000000000003
+curl -X POST -d '{"address":"192.168.12.1/24"}' http://localhost:8080/router/0000000000000001
+curl -X POST -d '{"address":"192.168.12.2/24"}' http://localhost:8080/router/0000000000000002
+curl -X POST -d '{"address":"192.168.23.1/24"}' http://localhost:8080/router/0000000000000002
+curl -X POST -d '{"address":"192.168.23.2/24"}' http://localhost:8080/router/0000000000000003
+#Ajout des routes SI nécéssaire
+curl -X POST -d '{"destination": "192.168.30.0/24", "gateway": "192.168.12.2"}' http://localhost:8080/router/0000000000000001
+curl -X POST -d '{"destination": "192.168.20.0/24", "gateway": "192.168.12.2"}' http://localhost:8080/router/0000000000000001
+curl -X POST -d '{"destination": "192.168.10.0/24", "gateway": "192.168.12.1"}' http://localhost:8080/router/0000000000000002
+curl -X POST -d '{"destination": "192.168.30.0/24", "gateway": "192.168.23.2"}' http://localhost:8080/router/0000000000000002
+curl -X POST -d '{"destination": "192.168.10.0/24", "gateway": "192.168.13.1"}' http://localhost:8080/router/0000000000000003
+curl -X POST -d '{"destination": "192.168.20.0/24", "gateway": "192.168.23.1"}' http://localhost:8080/router/0000000000000003
