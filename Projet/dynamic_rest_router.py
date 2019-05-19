@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import time
 import logging
 import numbers
 import socket
@@ -163,7 +163,7 @@ PRIORITY_L2_SWITCHING = 4
 PRIORITY_IP_HANDLING = 5
 
 PRIORITY_TYPE_ROUTE = 'priority_route'
-
+TIMER_EXIST = False
 
 def get_priority(priority_type, vid=0, route=None):
     log_msg = None
@@ -961,13 +961,27 @@ class VlanRouter(object):
                 elif TCP in header_list or UDP in header_list:
                     self._packetin_tcp_udp(msg, header_list)
                     if header_list[UDP].dst_port == 6000: #Test si le paquet entrant est de l'udp sur le port 6000
-                        print("HELLO PACKET RECEIVE") 
+                        print("HELLO PACKET RECEIVE")#Simple print pour l'instant
+                        if(True):#On teste l'existence d'un timer Pour l'instant rien
+                        	self.thread_udp_timer = hub.spawn(self._packetin_udp_timer(msg))
                     return
             
             else:
                 # Packet to internal host or gateway router.
                 self._packetin_to_node(msg, header_list)
                 return
+    def _packetin_udp_timer(self, msg):#Fonction Timer
+    	timer = 60
+    	#self.thread = hub.spawn(self._cyclic_update_routing_tbl)
+    	while(timer>0):#Tant que le timer n'a pas atteint 0
+    		timer=timer-1
+    		time.sleep(1)
+    		print("On enleve 1 au timer, le timer = %s" % timer)
+
+    	#hub.kill(self.thread_udp_timer)#
+        #self.thread_udp_timer.wait()#
+        #self.logger.info('Stop timer',extra=self.sw_id)#
+    	return timer
 
     def _packetin_arp(self, msg, header_list):
         src_addr = self.address_data.get_data(ip=header_list[ARP].src_ip)
@@ -1239,7 +1253,6 @@ class VlanRouter(object):
         self.logger.debug('Receive packet from unknown IP[%s].',
                           ip_addr_ntoa(src_ip), extra=self.sw_id)
         return None
-
 
 class PortData(dict):
     def __init__(self, ports):
