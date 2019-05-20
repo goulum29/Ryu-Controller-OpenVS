@@ -438,7 +438,6 @@ class RouterController(ControllerBase):
         else:
             raise NotFoundError(switch_id=switch_id)
 
-
 class Router(dict):
     def __init__(self, dp, logger):
         super(Router, self).__init__()
@@ -608,7 +607,7 @@ class VlanRouter(object):
         self.routing_tbl = RoutingTable()
         self.packet_buffer = SuspendPacketList(self.send_icmp_unreach_error)
         self.ofctl = OfCtl.factory(dp, logger)
-
+        self.link_state = LinkState() 
         # Set flow: default route (drop)
         self._set_defaultroute_drop()
 
@@ -962,8 +961,8 @@ class VlanRouter(object):
                     self._packetin_tcp_udp(msg, header_list)
                     if header_list[UDP].dst_port == 6000: #Test si le paquet entrant est de l'udp sur le port 6000
                         print("HELLO PACKET RECEIVE")#Simple print pour l'instant
-                        if(True):#On teste l'existence d'un timer Pour l'instant rien
-                        	self.thread_udp_timer = hub.spawn(self._packetin_udp_timer(msg))
+                        #if(True):#On teste l'existence d'un timer Pour l'instant rien
+                        	#self.thread_udp_timer = hub.spawn(self._packetin_udp_timer(msg))
                     return
             
             else:
@@ -1459,6 +1458,9 @@ class SuspendPacket(object):
         # Start ARP reply wait timer.
         self.wait_thread = hub.spawn(timer, self)
 
+class LinkState(object):
+    def __init__(self):
+        super(LinkState,self).__init__()
 
 class OfCtl(object):
     _OF_VERSIONS = {}
