@@ -607,11 +607,12 @@ class VlanRouter(object):
         self.routing_tbl = RoutingTable()
         self.packet_buffer = SuspendPacketList(self.send_icmp_unreach_error)
         self.ofctl = OfCtl.factory(dp, logger)
-
+        print("Avant default route drop Dans VlanRouter")
         #self.ipaddr_gw_opp = self.routing_tbl.get_gateways
         #print (self.ipaddr_gw_opp)
         # Set flow: default route (drop)
         self._set_defaultroute_drop()
+        print("Avant lancement de la classe LinkState")
         self.link_state = LinkState(self.ofctl,self.routing_tbl,self.address_data,self.packet_buffer)#a reactiver
 
     def delete(self, waiters):
@@ -1464,13 +1465,21 @@ class SuspendPacket(object):
 class LinkState(object):
     def __init__(self,ofctl_fonction,routing_fonction,addr_data_fonction,packet_buffer_fonction):
         super(LinkState,self).__init__()
+        print("Lancement class LinkState")
         self.ofctlbis = ofctl_fonction
         self.routing_tblbis = routing_fonction
         self.address_databis = addr_data_fonction
         self.packet_buffer = packet_buffer_fonction
-        time.sleep(1)
-        print(self.routing_tblbis.get_gateways)
+        boucle_LS(self.routing_tblbis)
+
+    def boucle_LS(self,routingtblbis):
+    	self.thread = hub.spawn(envoie_paquet_udp(routingtblbis), self)
         #self.ofctlbis.hello_sender()#Appel de la fonction qui doit envoyer les paquets UDP
+    def envoie_paquet_udp(self,routingtblbis):
+    	while True:
+    		hub.sleep(1)
+    		print("Envoie de paquet UDP")
+    		print(self.routingtblbis.get_gateways)
 
 class OfCtl(object):
     _OF_VERSIONS = {}
