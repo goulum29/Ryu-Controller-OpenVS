@@ -607,9 +607,12 @@ class VlanRouter(object):
         self.routing_tbl = RoutingTable()
         self.packet_buffer = SuspendPacketList(self.send_icmp_unreach_error)
         self.ofctl = OfCtl.factory(dp, logger)
-        self.link_state = LinkState(self.ofctl)
+
+        #self.ipaddr_gw_opp = self.routing_tbl.get_gateways
+        #print (self.ipaddr_gw_opp)
         # Set flow: default route (drop)
         self._set_defaultroute_drop()
+        self.link_state = LinkState(self.ofctl,self.routing_tbl,self.address_data,self.packet_buffer)#a reactiver
 
     def delete(self, waiters):
         # Delete flow.
@@ -1459,10 +1462,15 @@ class SuspendPacket(object):
         self.wait_thread = hub.spawn(timer, self)
 
 class LinkState(object):
-    def __init__(self,ofctl_fonction):
+    def __init__(self,ofctl_fonction,routing_fonction,addr_data_fonction,packet_buffer_fonction):
         super(LinkState,self).__init__()
         self.ofctlbis = ofctl_fonction
-        self.ofctlbis.hello_sender()#Appel de la fonction qui doit envoyer les paquets UDP
+        self.routing_tblbis = routing_fonction
+        self.address_databis = addr_data_fonction
+        self.packet_buffer = packet_buffer_fonction
+        time.sleep(1)
+        print(self.routing_tblbis.get_gateways)
+        #self.ofctlbis.hello_sender()#Appel de la fonction qui doit envoyer les paquets UDP
 
 class OfCtl(object):
     _OF_VERSIONS = {}
@@ -1641,7 +1649,7 @@ class OfCtl(object):
 
         return msgs
 
-    def hello_sender(self, in_port, protocol_list, vlan_id, src_ip=None):
+    def hello_sender(self, in_port, protocol_list, vlan_id, src_mac, dst_mac,dst_ip,src_ip=None):
         csum = 0
         offset = ethernet.ethernet._MIN_LEN
 
