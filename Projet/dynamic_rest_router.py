@@ -207,7 +207,7 @@ class CommandFailure(RyuException):
 
 
 class RestRouterAPI(app_manager.RyuApp):
-
+	
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION,
                     ofproto_v1_2.OFP_VERSION,
                     ofproto_v1_3.OFP_VERSION]
@@ -217,7 +217,7 @@ class RestRouterAPI(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(RestRouterAPI, self).__init__(*args, **kwargs)
-
+		print("Lancement de l'application")
         # logger configure
         RouterController.set_logger(self.logger)
 
@@ -607,13 +607,14 @@ class VlanRouter(object):
         self.routing_tbl = RoutingTable()
         self.packet_buffer = SuspendPacketList(self.send_icmp_unreach_error)
         self.ofctl = OfCtl.factory(dp, logger)
+        self.link_state = LinkState(self.ofctl,self.routing_tbl,self.address_data,self.packet_buffer)#a reactiver
         print("Avant default route drop Dans VlanRouter")
-        #self.ipaddr_gw_opp = self.routing_tbl.get_gateways
-        #print (self.ipaddr_gw_opp)
+        self.ipaddr_gw_opp = self.routing_tbl.get_gateways
+        print(self.ipaddr_gw_opp)
         # Set flow: default route (drop)
         self._set_defaultroute_drop()
         print("Avant lancement de la classe LinkState")
-        self.link_state = LinkState(self.ofctl,self.routing_tbl,self.address_data,self.packet_buffer)#a reactiver
+        
 
     def delete(self, waiters):
         # Delete flow.
