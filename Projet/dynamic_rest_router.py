@@ -607,7 +607,7 @@ class VlanRouter(object):
         self.routing_tbl = RoutingTable()
         self.packet_buffer = SuspendPacketList(self.send_icmp_unreach_error)
         self.ofctl = OfCtl.factory(dp, logger)
-        self.link_state = LinkState() 
+        self.link_state = LinkState(self.ofctl)
         # Set flow: default route (drop)
         self._set_defaultroute_drop()
 
@@ -1459,8 +1459,10 @@ class SuspendPacket(object):
         self.wait_thread = hub.spawn(timer, self)
 
 class LinkState(object):
-    def __init__(self):
+    def __init__(self,ofctl_fonction):
         super(LinkState,self).__init__()
+        self.ofctlbis = ofctl_fonction
+        self.ofctlbis.hello_sender()#Appel de la fonction qui doit envoyer les paquets UDP
 
 class OfCtl(object):
     _OF_VERSIONS = {}
