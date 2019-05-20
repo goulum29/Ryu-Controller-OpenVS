@@ -56,10 +56,10 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.lib.packet import ether_types
-#from ryu.lib import mac  (Déjà fait en haut voir si ça marche avec as mac_lib)
+#from ryu.lib import mac 
 from ryu.lib.mac import haddr_to_bin
 from ryu.controller import mac_to_port
-import networkx as nx
+#import networkx as nx
 from ryu.topology import event, switches
 from ryu.topology.api import get_switch, get_link
 import array
