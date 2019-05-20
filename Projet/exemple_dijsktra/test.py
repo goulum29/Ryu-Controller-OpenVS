@@ -1,87 +1,6 @@
 # ============================================
 #         Dev pour Dijskra
 # ============================================
- 
-class SimpleSwitch13(app_manager.RyuApp):
-    OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-
-    global dijkstra, receive_arp, dpid_hostLookup,dijkstra_longestpath
-    global path2
-    path2 = [0]
-
-
-    def __init__(self, *args, **kwargs):
-        super(SimpleSwitch13, self).__init__(*args, **kwargs)
-        self.mac_to_port = {}
-        self.net = nx.DiGraph()
-        self.g = nx.DiGraph()
-        self.switch_map = {}
-
-        #self.handle_arp
-       # self.send_packet
-       #  self.arp_table = {'10.1.0.1': '00:00:00:00:00:01',
-       #                    '10.1.0.2': '00:00:00:00:00:02',
-       #                    '10.1.0.3': '00:00:00:00:00:03',
-       #                    '10.0.0.1': '00:00:00:00:00:11',
-       #                    '10.0.0.2': '00:00:00:00:00:12',
-       #                    '10.0.0.3': '00:00:00:00:00:13',
-       #                    '10.0.0.4': '00:00:00:00:00:14',
-       #                    '10.0.1.1': '00:00:00:00:00:21',
-       #                    '10.1.1.2': '00:00:00:00:00:22',
-       #                    '10.1.1.3': '00:00:00:00:00:23',
-       #                    '10.1.1.4': '00:00:00:00:00:24',
-       #                    '10.0.2.1': '00:00:00:00:00:31',
-       #                    '10.1.2.2': '00:00:00:00:00:32',
-       #                    '10.1.2.3': '00:00:00:00:00:33',
-       #                    '10.1.2.4': '00:00:00:00:00:34'
-       #                    }
-        # self.count = 0
-
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
-    def switch_features_handler(self, ev):
-        datapath = ev.msg.datapath
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        self.switch_map.update({datapath.id: datapath})
-
-        # install table-miss flow entry
-        #
-        # We specify NO BUFFER to max_len of the output action due to
-        # OVS bug. At this moment, if we specify a lesser number, e.g.,
-        # 128, OVS will send Packet-In with invalid buffer_id and
-        # truncated packet data. In that case, we cannot output packets
-        # correctly.  The bug has been fixed in OVS v2.1.0.
-        match = parser.OFPMatch()
-        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
-                                          ofproto.OFPCML_NO_BUFFER)]
-        self.add_flow(datapath, 0, match, actions)
-
-    def add_flow(self, datapath, priority, match,inst=[],table=0):
-        ofp = datapath.ofproto
-        ofp_parser = datapath.ofproto_parser
-
-        buffer_id = ofp.OFP_NO_BUFFER
-
-        mod = ofp_parser.OFPFlowMod(
-            datapath=datapath, table_id=table,
-            command=ofp.OFPFC_ADD, priority=priority, buffer_id=buffer_id,
-            out_port=ofp.OFPP_ANY, out_group=ofp.OFPG_ANY,
-            match=match, instructions=inst
-        )
-        datapath.send_msg(mod)
- 
-
-    def dpid_hostLookup(self, lmac):
-
-        host_locate = {1: {'00:00:00:00:00:11', '00:00:00:00:00:12'}, 2: {'00:00:00:00:00:13', '00:00:00:00:00:14'},
-                       5: {'00:00:00:00:00:21', '00:00:00:00:00:22'}, 6: {'00:00:00:00:00:23', '00:00:00:00:00:24'},
-                       9: {'00:00:00:00:00:31', '00:00:00:00:00:32'}, 10: {'00:00:00:00:00:33', '00:00:00:00:00:34'},
-                       13: {'00:00:00:00:00:01'}, 14: {'00:00:00:00:00:02'}, 16: {'00:00:00:00:00:03'}}
-        for dpid, mac in host_locate.iteritems():
-            if lmac in mac:
-                return dpid
-
-
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -143,13 +62,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         #print(links)
         #print(self.g)
 
-        topo = {'1': {'3': 50, '4': 100}, '2': {'3': 100, '4': 50}, '3': {'1': 50, '2': 100, '13': 15, '14': 100},
-                '4': {'1': 100, '2': 50, '14': 5}, '5': {'7': 50, '8': 100}, '6': {'7': 100, '8': 50},
-                '7': {'5': 50, '6': 100, '13': 15, '14': 20, '15': 5}, '8': {'5': 100, '6': 50, '15': 10, '16': 15},
-                '9': {'11': 50, '12': 100}, '10': {'11': 100, '12': 50},
-                '11': {'9': 50, '10': 100, '14': 10}, '12': {'9': 100, '10': 50, '15': 15, '16': 10},
-                '13': {'3': 15, '7': 15}, '14': {'3': 10, '4': 5, '7': 20, '11': 10}, '15': {'7': 5, '8': 10, '12': 15},
-                '16': {'8': 15, '12': 10}}
+	topo = {'1': {'2': 1, '3': 1},'2': {'1': 1, '3': 1},'3': {'1': 1, '2': 1}}
 
         dst_dpid = dpid_hostLookup(self, dst)
         print("dpid",str(dpid))
@@ -160,20 +73,16 @@ class SimpleSwitch13(app_manager.RyuApp):
         src=str(src)
         dst=str(dst)
         print("dst dpid",str(dst_dpid))
-        if ((src == '00:00:00:00:00:01' and dst == '00:00:00:00:00:13') or (src == '00:00:00:00:00:01' and dst == '00:00:00:00:00:23') or (
-            src == '00:00:00:00:00:01' and dst == '00:00:00:00:00:33') or(src == '00:00:00:00:00:02' and dst == '00:00:00:00:00:12') or (
-            src == '00:00:00:00:00:02' and dst == '00:00:00:00:00:22') or (src == '00:00:00:00:00:02' and dst == '00:00:00:00:00:32') or
-            (src == '00:00:00:00:00:03' and dst == '00:00:00:00:00:14') or (src == '00:00:00:00:00:03' and dst == '00:00:00:00:00:24') or (
-                        src == '00:00:00:00:00:03' and dst == '00:00:00:00:00:34')):
+        if ((src == '42:97:0c:3b:eb:45' and dst == 'ae:6e:17:4e:a4:4b') or (src == '42:97:0c:3b:eb:45' and dst == '52:be:16:56:b4:47') or (
+            src == 'ae:6e:17:4e:a4:4b' and dst == '42:97:0c:3b:eb:45') or(src == 'ae:6e:17:4e:a4:4b' and dst == '52:be:16:56:b4:47') or (
+            src == '52:be:16:56:b4:47' and dst == '42:97:0c:3b:eb:45') or (src == '52:be:16:56:b4:47' and dst == 'ae:6e:17:4e:a4:4b')):
          dijkstra(topo, str(dpid), str(dst_dpid))
          global path2
          path3= list(map(int, path2))
          print(path3)
          path3.reverse()
 
-        elif ((src == '00:00:00:00:00:01' and (dst == '00:00:00:00:00:11' or dst == '00:00:00:00:00:12' or dst == '00:00:00:00:00:14' or dst == '00:00:00:00:00:21' or dst == '00:00:00:00:00:22' or dst == '00:00:00:00:00:24' or dst == '00:00:00:00:00:31' or dst == '00:00:00:00:00:32' or dst == '00:00:00:00:00:34'))
-              or (src == '00:00:00:00:00:02' and (dst == '00:00:00:00:00:11' or dst == '00:00:00:00:00:13' or dst == '00:00:00:00:00:14' or dst == '00:00:00:00:00:21' or dst == '00:00:00:00:00:23' or dst == '00:00:00:00:00:24' or dst == '00:00:00:00:00:31' or dst == '00:00:00:00:00:33' or dst == '00:00:00:00:00:34'))
-              or (src == '00:00:00:00:00:03' and (dst == '00:00:00:00:00:11' or dst == '00:00:00:00:00:12' or dst == '00:00:00:00:00:13' or dst == '00:00:00:00:00:21' or dst == '00:00:00:00:00:22' or dst == '00:00:00:00:00:23' or dst == '00:00:00:00:00:31' or dst == '00:00:00:00:00:32' or dst == '00:00:00:00:00:33'))):
+        else:
             dijkstra_longestpath(topo, str(dpid), str(dst_dpid))
             path3 = list(map(int, path2))
             print(path3)

@@ -59,7 +59,7 @@ from ryu.lib.packet import ether_types
 #from ryu.lib import mac 
 from ryu.lib.mac import haddr_to_bin
 from ryu.controller import mac_to_port
-#import networkx as nx
+import networkx as nx
 from ryu.topology import event, switches
 from ryu.topology.api import get_switch, get_link
 import array
@@ -224,9 +224,18 @@ class RestRouterAPI(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION,
                     ofproto_v1_2.OFP_VERSION,
                     ofproto_v1_3.OFP_VERSION]
-
+# ============================================
+#          DEV Dijskra
+# ============================================
+    global dijkstra, receive_arp, dpid_hostLookup,dijkstra_longestpath
+    global path2
+    path2 = [0]
+	
     _CONTEXTS = {'dpset': dpset.DPSet,
                  'wsgi': WSGIApplication}
+# ============================================
+#       FIN   DEV Dijskra
+# ============================================
 
     def __init__(self, *args, **kwargs):
         super(RestRouterAPI, self).__init__(*args, **kwargs)
@@ -237,6 +246,10 @@ class RestRouterAPI(app_manager.RyuApp):
         wsgi = kwargs['wsgi']
         self.waiters = {}
         self.data = {'waiters': self.waiters}
+        self.mac_to_port = {}
+        self.net = nx.DiGraph()
+        self.g = nx.DiGraph()
+        self.switch_map = {}
 
         mapper = wsgi.mapper
         wsgi.registory['RouterController'] = self.data
@@ -271,6 +284,31 @@ class RestRouterAPI(app_manager.RyuApp):
                        requirements=requirements,
                        action='delete_vlan_data',
                        conditions=dict(method=['DELETE']))
+# ============================================
+#          DEV Dijskra
+# ============================================
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    def switch_features_handler(self, ev):
+        datapath = ev.msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        self.switch_map.update({datapath.id: datapath})
+
+        # install table-miss flow entry
+        #
+        # We specify NO BUFFER to max_len of the output action due to
+        # OVS bug. At this moment, if we specify a lesser number, e.g.,
+        # 128, OVS will send Packet-In with invalid buffer_id and
+        # truncated packet data. In that case, we cannot output packets
+        # correctly.  The bug has been fixed in OVS v2.1.0.
+        match = parser.OFPMatch()
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
+                                          ofproto.OFPCML_NO_BUFFER)]
+        self.VlanRouter.add_flow(datapath, 0, match, actions)
+
+# ============================================
+#     FIN     DEV Dijskra
+# ============================================
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     def datapath_handler(self, ev):
@@ -976,6 +1014,7 @@ class VlanRouter(object):
                         print("HELLO PACKET RECEIVE")#Simple print pour l'instant
                         #if(True):#On teste l'existence d'un timer Pour l'instant rien
                         	#self.thread_udp_timer = hub.spawn(self._packetin_udp_timer(msg))
+			VlanRouter.dijkstra(ev.dp)
                     return
             
             else:
@@ -1040,8 +1079,8 @@ class VlanRouter(object):
             if header_list[ARP].opcode == arp.ARP_REQUEST:
                 # ARP request to router port -> send ARP reply
                 src_mac = self.port_data[in_port].mac
-                dst_mac = header_list[ARP].src_mac
-                arp_target_mac = dst_mac
+                dst_mac = header_list[ARP].src_mac  
+                arp_target_mac = dst_mac  
                 output = in_port
                 in_port = self.ofctl.dp.ofproto.OFPP_CONTROLLER
 
@@ -1313,6 +1352,73 @@ class VlanRouter(object):
                     unvisited[k] = distances.get(k, float('inf'))
             x = min(unvisited, key=unvisited.get)
             dijkstra(graph, x, destination, visited, distances, predecessors)
+
+
+
+    def dijkstra_longestpath(graph, src_ip, destination, visited=[], distances={}, predecessors={}):
+        """ calculates a shortest path tree routed in src_ip
+        """
+        # a few sanity checks
+        if src_ip not in graph:
+            raise TypeError('The root of the shortest path tree cannot be found')
+        if destination not in graph:
+            raise TypeError('The target of the shortest path cannot be found')
+            # ending condition
+        if src_ip == destination:
+            # We build the shortest path and display it
+            path = []
+            pred = destination
+            while pred != None:
+                path.append(pred)
+                pred = predecessors.get(pred, None)
+            print('shortest path:  ' + str(path) + " cost= " + str(distances[destination]))
+            global path2
+            path2=path
+
+        else:
+            # if it is the initial  run, initializes the cost
+            if not visited:
+                distances[src_ip] = 0
+            # visit the neighbors
+            for neighbor in graph[src_ip]:
+                if neighbor not in visited:
+                    new_distance = distances[src_ip] + graph[src_ip][neighbor]
+                    print(new_distance)
+                    if new_distance <= distances.get(neighbor, float('inf')):
+                        distances[neighbor] = new_distance
+                        predecessors[neighbor] = src_ip
+            # mark as visited
+            visited.append(src_ip)
+            # now that all neighbors have been visited: recurse
+            # select the non visited node with lowest distance 'x'
+            # run Dijskstra with src_ip='x'
+            unvisited = {}
+            for k in graph:
+                if k not in visited:
+                    unvisited[k] = distances.get(k, float('inf'))
+            x = min(unvisited, key=unvisited.get)
+            dijkstra(graph, x, destination, visited, distances, predecessors)
+
+    def add_flow(self, datapath, priority, match,inst=[],table=0):
+        ofp = datapath.ofproto
+        ofp_parser = datapath.ofproto_parser
+
+        buffer_id = ofp.OFP_NO_BUFFER
+
+        mod = ofp_parser.OFPFlowMod(
+            datapath=datapath, table_id=table,
+            command=ofp.OFPFC_ADD, priority=priority, buffer_id=buffer_id,
+            out_port=ofp.OFPP_ANY, out_group=ofp.OFPG_ANY,
+            match=match, instructions=inst
+        )
+        datapath.send_msg(mod)
+
+    def dpid_hostLookup(self, lmac):
+
+        host_locate = {1: {'06:54:44:e3:fa:bf', '82:2e:de:93:16:32'}, 2: {'f6:9d:d0:98:ff:b9', 'c6:a6:ea:8c:16:97'}, 3: {'12:ab:7b:e8:56:d0', '1e:39:2a:27:48:73'}}
+        for dpid, mac in host_locate.iteritems():
+            if lmac in mac:
+                return dpid
 #----------------------------------------------------------------------------
 # 		FIN	Dev Dijkstra
 #----------------------------------------------------------------------------
