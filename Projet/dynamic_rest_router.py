@@ -50,7 +50,6 @@ from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto import ofproto_v1_2
 from ryu.ofproto import ofproto_v1_3
 
-
 # =============================
 #          REST API
 # =============================
@@ -217,7 +216,7 @@ class RestRouterAPI(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(RestRouterAPI, self).__init__(*args, **kwargs)
-		print("Lancement de l'application")
+		#print("Lancement de l'application")
         # logger configure
         RouterController.set_logger(self.logger)
 
@@ -1163,7 +1162,7 @@ class VlanRouter(object):
                 self.ofctl.send_arp(arp.ARP_REQUEST, self.vlan_id,
                                     src_mac, dst_mac, src_ip, dst_ip,
                                     arp_target_mac, inport, output)
-
+    
     def send_icmp_unreach_error(self, packet_buffer):
         # Send ICMP host unreach error.
         self.logger.info('ARP reply wait timer was timed out.',
@@ -1471,16 +1470,13 @@ class LinkState(object):
         self.routing_tblbis = routing_fonction
         self.address_databis = addr_data_fonction
         self.packet_buffer = packet_buffer_fonction
-        boucle_LS(self.routing_tblbis)
+        #self.thread = hub.spawn(self.envoie_paquet_udp(routing_fonction),self)
+        #self.thread=hub.spawn(self.envoie_paquet_udp(self.ofctlbis))
 
-    def boucle_LS(self,routingtblbis):
-    	self.thread = hub.spawn(envoie_paquet_udp(routingtblbis), self)
-        #self.ofctlbis.hello_sender()#Appel de la fonction qui doit envoyer les paquets UDP
-    def envoie_paquet_udp(self,routingtblbis):
-    	while True:
-    		hub.sleep(1)
-    		print("Envoie de paquet UDP")
-    		print(self.routingtblbis.get_gateways)
+    def envoie_paquet_udp(self,ofctl):
+        print("Envoie de paquet udp HELLO PACKET")
+        #self.ofctlbis2=ofctl
+        #self.ofctlbis2.hello_sender()
 
 class OfCtl(object):
     _OF_VERSIONS = {}
@@ -1700,6 +1696,26 @@ class OfCtl(object):
         #Envoi du paquet via le port du router
         self.send_packet_out(in_port, self.dp.ofproto.OFPP_IN_PORT, pkt.data, data_str=str(pkt))
 
+    def build_packet(self, dst_dpid, src_dpid, out_port):
+        #dst = '1' * 6
+        #dst = '00:00:00:00:00:01'
+        #src = '00:00:00:00:00:02' 
+        ethertype = 0x07c3
+        dst = '00:00:00:00:00:01'
+        src = '00:00:00:00:00:02' 
+        e = ethernet.ethernet(dst, src, ethertype)
+        ip = ipv4.ipv4(src='192.168.10.254', dst='192.168.10.1')
+        dst_port=6000
+        u = udp.udp(src_port=out_port,dst_port=dst_port)
+
+        p = packet.Packet()
+        p.add_protocol(e)
+        p.add_protocol(ip)
+        p.add_protocol(u)
+        p.add_protocol(out_port)
+        p.add_protocol(time.time())
+        p.serialize()
+        return p 
 
 
 @OfCtl.register_of_version(ofproto_v1_0.OFP_VERSION)
