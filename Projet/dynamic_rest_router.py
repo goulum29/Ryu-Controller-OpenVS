@@ -287,8 +287,10 @@ class RestRouterAPI(app_manager.RyuApp):
 # ============================================
 #          DEV Dijskra
 # ============================================
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) #This is called when Ryu receives an OpenFlow packet_in message
+    #@set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
+	print('#################################################"Ca passe dans def switch_features_handler')
         datapath = ev.msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
@@ -305,6 +307,7 @@ class RestRouterAPI(app_manager.RyuApp):
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
         self.VlanRouter.add_flow(datapath, 0, match, actions)
+	print('Ca passe dans def switch_features_handler')
 
 # ============================================
 #     FIN     DEV Dijskra
@@ -1423,10 +1426,9 @@ class VlanRouter(object):
 # ============================================
 #         Dev 2 pour Dijskra
 # ============================================
-
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # Fonction appele a chaque OpenFlow entrant  
     def _packet_in_handler(self, ev):
-
+	print('######################################Ca passe dans def _packet_in_handler')
         pkt = packet.Packet(ev.msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
         arp_pkt = pkt.get_protocol(arp.arp)
