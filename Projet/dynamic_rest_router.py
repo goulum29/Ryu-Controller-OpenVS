@@ -612,13 +612,13 @@ class VlanRouter(object):
         self.routing_tbl = RoutingTable()
         self.packet_buffer = SuspendPacketList(self.send_icmp_unreach_error)
         self.ofctl = OfCtl.factory(dp, logger)
-        self.link_state = LinkState(self.ofctl,self.routing_tbl,self.address_data,self.packet_buffer,self.vlan_id,self.sw_id)#a reactiver
-        print("Avant default route drop Dans VlanRouter")
+        #self.link_state = LinkState(self.ofctl,self.routing_tbl,self.address_data,self.packet_buffer,self.vlan_id,self.sw_id)#a reactiver
+        #print("Avant default route drop Dans VlanRouter")
         self.ipaddr_gw_opp = self.routing_tbl.get_gateways
         print(self.ipaddr_gw_opp)
         # Set flow: default route (drop)
         self._set_defaultroute_drop()
-        print("Avant lancement de la classe LinkState")
+        #print("Avant lancement de la classe LinkState")
         
 
     def delete(self, waiters):
@@ -1155,6 +1155,27 @@ class VlanRouter(object):
         for gateway in gateways:
             address = self.address_data.get_data(ip=gateway)
             self.send_arp_request(address.default_gw, gateway)
+            print("Variable address.default_gw :",address.default_gw)
+            print("Variable :",gateway)
+
+    def send_udp_hello_all_gw(self):
+        print("DANS send_udp_hello_all_gw")
+        gateways = self.routing_tbl.get_gateways()
+        for gateway in gateways:
+            address = self.address_data.get_data(ip=gateway)
+            print("Variable address.default_gw :",address.default_gw)
+            print("Variable :",gateway)
+            self.send_hello_request_to_gw(self,src_ip,dst_ip,in_port=None)
+
+    def send_hello_request(self, src_ip, dst_ip, in_port=None):
+        for send_port in self.port_data.values():
+            if in_port is None or in_port != send_port.port_no:
+                src_mac = send_port.mac
+                dst_mac = mac_lib.BROADCAST_STR
+                ip_dst = dst_ip
+                inport = send_port.port_no
+                output = send_port.port_no
+                self.ofctl.send_udp()
 
     def send_arp_request(self, src_ip, dst_ip, in_port=None):
         # Send ARP request from all ports.
@@ -1662,7 +1683,7 @@ class OfCtl(object):
 
         return msgs
 
-    def hello_sender(self, in_port, protocol_list, vlan_id, src_mac, dst_mac,dst_ip,src_ip=None):
+    def send_udp(self, in_port, protocol_list, vlan_id, src_mac, dst_mac,dst_ip,src_ip=None):
         csum = 0
         offset = ethernet.ethernet._MIN_LEN
 
