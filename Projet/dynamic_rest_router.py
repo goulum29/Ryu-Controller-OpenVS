@@ -56,7 +56,7 @@ from ryu.ofproto import ofproto_v1_3
 from ryu.base import app_manager
 from ryu.controller.handler import CONFIG_DISPATCHER
 from ryu.lib.packet import ether_types
-#from ryu.lib import mac 
+from ryu.lib import mac 
 from ryu.lib.mac import haddr_to_bin
 from ryu.controller import mac_to_port
 import networkx as nx
@@ -304,7 +304,6 @@ class RestRouterAPI(app_manager.RyuApp):
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
-	print ('FIN def switch_features_handler')
 # ============================================
 #     FIN     DEV Dijskra
 # ============================================
@@ -313,7 +312,6 @@ class RestRouterAPI(app_manager.RyuApp):
 # ============================================
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # Fonction appele a chaque OpenFlow entrant  
     def _packet_in_handler(self, ev):
-	print('######################################Ca passe dans def _packet_in_handler')
         pkt = packet.Packet(ev.msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
         arp_pkt = pkt.get_protocol(arp.arp)
@@ -324,7 +322,6 @@ class RestRouterAPI(app_manager.RyuApp):
             pak = ip4_pkt
         else:
             pak = eth
-
         self.logger.info('  _packet_in_handler: src_mac -> %s' % eth.src)
         self.logger.info('  _packet_in_handler: dst_mac -> %s' % eth.dst)
         self.logger.info('  _packet_in_handler: %s' % pak)
@@ -343,7 +340,6 @@ class RestRouterAPI(app_manager.RyuApp):
         in_port = msg.match['in_port']
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
-
         self.logger.info(">>>>>>> packet in %s %s %s %s", dpid, src, dst, in_port)
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = in_port
@@ -370,7 +366,6 @@ class RestRouterAPI(app_manager.RyuApp):
         self.g.add_edges_from(links)
         #print(links)
         #print(self.g)
-
 	topo = {'1': {'2': 1, '3': 1},'2': {'1': 1, '3': 1},'3': {'1': 1, '2': 1}}
 
         dst_dpid = dpid_hostLookup(self, dst)
@@ -382,21 +377,22 @@ class RestRouterAPI(app_manager.RyuApp):
         src=str(src)
         dst=str(dst)
         print("dst dpid",str(dst_dpid))
+
         if ((src == '42:97:0c:3b:eb:45' and dst == 'ae:6e:17:4e:a4:4b') or (src == '42:97:0c:3b:eb:45' and dst == '52:be:16:56:b4:47') or (
             src == 'ae:6e:17:4e:a4:4b' and dst == '42:97:0c:3b:eb:45') or(src == 'ae:6e:17:4e:a4:4b' and dst == '52:be:16:56:b4:47') or (
             src == '52:be:16:56:b4:47' and dst == '42:97:0c:3b:eb:45') or (src == '52:be:16:56:b4:47' and dst == 'ae:6e:17:4e:a4:4b')):
          dijkstra(topo, str(dpid), str(dst_dpid))
          global path2
+	 print('######################################Ca passe dans def _packet_in_handler')
          path3= list(map(int, path2))
          print(path3)
          path3.reverse()
-
         else:
             dijkstra_longestpath(topo, str(dpid), str(dst_dpid))
             path3 = list(map(int, path2))
             print(path3)
             path3.reverse()
-
+	    print('######################################Ca passe dans def _packet_in_handler')
 
         if not self.g.has_node(eth.src):
             print("add %s in self.net" % eth.src)
@@ -516,11 +512,14 @@ class RestRouterAPI(app_manager.RyuApp):
         """
         # a few sanity checks
         if src_ip not in graph:
+	    print('### 1/ src_ip not in graph')
             raise TypeError('The root of the shortest path tree cannot be found')
         if destination not in graph:
-            raise TypeError('The target of the shortest path cannot be found')
+	    print('### 2/ destination not in graph')
+            #raise TypeError('The target of the shortest path cannot be found')
             # ending condition
         if src_ip == destination:
+	    print('### 3/ src_ip == destination')
             # We build the shortest path and display it
             path = []
             pred = destination
@@ -530,8 +529,8 @@ class RestRouterAPI(app_manager.RyuApp):
             print('shortest path:  ' + str(path) + " cost= " + str(distances[destination]))
             global path2
             path2=path
-
         else:
+	    print('### 4/ else ')
             # if it is the initial  run, initializes the cost
             if not visited:
                 distances[src_ip] = 0
@@ -549,29 +548,30 @@ class RestRouterAPI(app_manager.RyuApp):
             # select the non visited node with lowest distance 'x'
             # run Dijskstra with src_ip='x'
             unvisited = {}
-            for k in graph:
-                if k not in visited:
-                    unvisited[k] = distances.get(k, float('inf'))
-            x = min(unvisited, key=unvisited.get)
+            for a in graph:
+                if a not in visited:
+                    unvisited[a] = distances.get(a, float('inf'))          	    
+	    #x = min(unvisited, key=unvisited.get)
+	    x = visited
             dijkstra(graph, x, destination, visited, distances, predecessors)
 
+
     def add_flow(self, datapath, priority, match,inst=[],table=0):
-	print('#################################################"Ca passe dans def add_flow')
         ofp = datapath.ofproto
         ofp_parser = datapath.ofproto_parser
 
         buffer_id = ofp.OFP_NO_BUFFER
-
-        mod = ofp_parser.OFPFlowMod(
+        mod = ofp_parser.OFPFlowMod( 
             datapath=datapath, table_id=table,
             command=ofp.OFPFC_ADD, priority=priority, buffer_id=buffer_id,
             out_port=ofp.OFPP_ANY, out_group=ofp.OFPG_ANY,
-            match=match, instructions=inst
+            match=match
+	    #instructions=inst
         )
         datapath.send_msg(mod)
+	print('add_flow CONFIRME')
 
     def dpid_hostLookup(self, lmac):
-
         host_locate = {1: {'06:54:44:e3:fa:bf', '82:2e:de:93:16:32'}, 2: {'f6:9d:d0:98:ff:b9', 'c6:a6:ea:8c:16:97'}, 3: {'12:ab:7b:e8:56:d0', '1e:39:2a:27:48:73'}}
         for dpid, mac in host_locate.iteritems():
             if lmac in mac:
