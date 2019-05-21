@@ -49,6 +49,8 @@ from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto import ofproto_v1_2
 from ryu.ofproto import ofproto_v1_3
+from threading import Thread
+from ryu.app import hello_event 
 # =============================
 #          REST API
 # =============================
@@ -261,6 +263,7 @@ class RestRouterAPI(app_manager.RyuApp):
     def datapath_handler(self, ev):
         if ev.enter:
             RouterController.register_router(ev.dp)
+            print(ev.dp)
         else:
             RouterController.unregister_router(ev.dp)
 
@@ -298,7 +301,11 @@ class RestRouterAPI(app_manager.RyuApp):
         self._stats_reply_handler(ev)
 
     # TODO: Update routing table when port status is changed.
-
+    @set_ev_cls(hello_event.SendUdp)
+    def _test_event_handler(self, ev):
+        if ev.msg == 'sendudp':
+            #self.logger.info('*** Received event: ev.msg = %s', ev.msg)
+            print("Envoi UDP")
 
 # REST command template
 def rest_command(func):
@@ -588,7 +595,7 @@ class Router(dict):
             for vlan_router in self.values():
                 vlan_router.send_arp_all_gw()
                 hub.sleep(1)
-
+                print("CYCLIC UPDATE ROUTING TABLE") 
             hub.sleep(CHK_ROUTING_TBL_INTERVAL)
 
 
@@ -605,7 +612,7 @@ class VlanRouter(object):
         self.routing_tbl = RoutingTable()
         self.packet_buffer = SuspendPacketList(self.send_icmp_unreach_error)
         self.ofctl = OfCtl.factory(dp, logger)
-        self.link_state = LinkState(self.ofctl,self.routing_tbl,self.address_data,self.packet_buffer)#a reactiver
+        self.link_state = LinkState(self.ofctl,self.routing_tbl,self.address_data,self.packet_buffer,self.vlan_id,self.sw_id)#a reactiver
         print("Avant default route drop Dans VlanRouter")
         self.ipaddr_gw_opp = self.routing_tbl.get_gateways
         print(self.ipaddr_gw_opp)
@@ -1471,9 +1478,10 @@ class LinkState(object):
         self.packet_buffer = packet_buffer_fonction
         #self.thread = hub.spawn(self.envoie_paquet_udp(routing_fonction),self)
         #self.thread=hub.spawn(self.envoie_paquet_udp(self.ofctlbis))
-
-    def envoie_paquet_udp(self,ofctl):
-        print("Envoie de paquet udp HELLO PACKET")
+        #self.envoie_paquet_udp(self,self.ofctlbis)
+    #def envoie_paquet_udp(self,ofctl):
+        #print("Envoie de paquet udp HELLO PACKET")
+        #self.ofctlbis2 = ofctl
         #self.ofctlbis2=ofctl
         #self.ofctlbis2.hello_sender()
 

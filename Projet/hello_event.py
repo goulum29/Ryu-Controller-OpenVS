@@ -4,6 +4,7 @@ from ryu.lib import hub
 
 
 # A user defined event class
+#Copy to /usr/local/lib/python2.7/dist-packages/ryu/app/hello_event.py
 class SendUdp(event.EventBase):
     def __init__(self, msg):
         super(SendUdp, self).__init__()
