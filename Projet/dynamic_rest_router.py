@@ -305,7 +305,7 @@ class RestRouterAPI(app_manager.RyuApp):
     def _test_event_handler(self, ev):
         if ev.msg == 'sendudp':
             #self.logger.info('*** Received event: ev.msg = %s', ev.msg)
-            print("Envoi UDP")
+            print("Envoi UDP",ev.msg)
 
 # REST command template
 def rest_command(func):
