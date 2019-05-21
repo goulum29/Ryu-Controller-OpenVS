@@ -13,14 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import time
 import logging
 import numbers
 import socket
 import struct
 
 import json
-
+from ryu.controller import event
 from ryu.app.wsgi import ControllerBase
 from ryu.app.wsgi import Response
 from ryu.app.wsgi import WSGIApplication
@@ -49,8 +49,8 @@ from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto import ofproto_v1_2
 from ryu.ofproto import ofproto_v1_3
-
-
+from threading import Thread
+from ryu.app import hello_event 
 # =============================
 #          REST API
 # =============================
@@ -163,7 +163,7 @@ PRIORITY_L2_SWITCHING = 4
 PRIORITY_IP_HANDLING = 5
 
 PRIORITY_TYPE_ROUTE = 'priority_route'
-
+TIMER_EXIST = False
 
 def get_priority(priority_type, vid=0, route=None):
     log_msg = None
@@ -207,7 +207,7 @@ class CommandFailure(RyuException):
 
 
 class RestRouterAPI(app_manager.RyuApp):
-
+	
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION,
                     ofproto_v1_2.OFP_VERSION,
                     ofproto_v1_3.OFP_VERSION]
@@ -217,7 +217,7 @@ class RestRouterAPI(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(RestRouterAPI, self).__init__(*args, **kwargs)
-
+		#print("Lancement de l'application")
         # logger configure
         RouterController.set_logger(self.logger)
 
@@ -263,6 +263,7 @@ class RestRouterAPI(app_manager.RyuApp):
     def datapath_handler(self, ev):
         if ev.enter:
             RouterController.register_router(ev.dp)
+            print(ev.dp)
         else:
             RouterController.unregister_router(ev.dp)
 
@@ -300,7 +301,12 @@ class RestRouterAPI(app_manager.RyuApp):
         self._stats_reply_handler(ev)
 
     # TODO: Update routing table when port status is changed.
-
+    @set_ev_cls(hello_event.SendUdp)
+    def _test_event_handler(self, ev):
+        if ev.msg == 'sendudp':
+            #self.logger.info('*** Received event: ev.msg = %s', ev.msg)
+            print("Envoi UDP",ev.msg)
+            RouterController.link_state(ev.msg)
 
 # REST command template
 def rest_command(func):
@@ -373,6 +379,13 @@ class RouterController(ControllerBase):
             router = cls._ROUTER_LIST[dp_id]
             router.packet_in_handler(msg)
 
+    @set_ev_cls(hello_event.SendUdp)
+    def link_state(cls,msg):
+        dp_id = msg.datapath.id
+        if dp_id in cls._ROUTER_LIST:
+            router = cls._ROUTER_LIST[dp_id]
+            router.send_udp_hello_all_gw()
+
     # GET /router/{switch_id}
     @rest_command
     def get_data(self, req, switch_id, **_kwargs):
@@ -437,7 +450,6 @@ class RouterController(ControllerBase):
             return routers
         else:
             raise NotFoundError(switch_id=switch_id)
-
 
 class Router(dict):
     def __init__(self, dp, logger):
@@ -591,7 +603,7 @@ class Router(dict):
             for vlan_router in self.values():
                 vlan_router.send_arp_all_gw()
                 hub.sleep(1)
-
+                print("CYCLIC UPDATE ROUTING TABLE") 
             hub.sleep(CHK_ROUTING_TBL_INTERVAL)
 
 
@@ -608,9 +620,14 @@ class VlanRouter(object):
         self.routing_tbl = RoutingTable()
         self.packet_buffer = SuspendPacketList(self.send_icmp_unreach_error)
         self.ofctl = OfCtl.factory(dp, logger)
-
+        #self.link_state = LinkState(self.ofctl,self.routing_tbl,self.address_data,self.packet_buffer,self.vlan_id,self.sw_id)#a reactiver
+        #print("Avant default route drop Dans VlanRouter")
+        self.ipaddr_gw_opp = self.routing_tbl.get_gateways
+        print(self.ipaddr_gw_opp)
         # Set flow: default route (drop)
         self._set_defaultroute_drop()
+        #print("Avant lancement de la classe LinkState")
+        
 
     def delete(self, waiters):
         # Delete flow.
@@ -961,13 +978,27 @@ class VlanRouter(object):
                 elif TCP in header_list or UDP in header_list:
                     self._packetin_tcp_udp(msg, header_list)
                     if header_list[UDP].dst_port == 6000: #Test si le paquet entrant est de l'udp sur le port 6000
-                        print("HELLO PACKET RECEIVE") 
+                        print("HELLO PACKET RECEIVE")#Simple print pour l'instant
+                        #if(True):#On teste l'existence d'un timer Pour l'instant rien
+                        	#self.thread_udp_timer = hub.spawn(self._packetin_udp_timer(msg))
                     return
             
             else:
                 # Packet to internal host or gateway router.
                 self._packetin_to_node(msg, header_list)
                 return
+    def _packetin_udp_timer(self, msg):#Fonction Timer
+    	timer = 60
+    	#self.thread = hub.spawn(self._cyclic_update_routing_tbl)
+    	while(timer>0):#Tant que le timer n'a pas atteint 0
+    		timer=timer-1
+    		time.sleep(1)
+    		print("On enleve 1 au timer, le timer = %s" % timer)
+
+    	#hub.kill(self.thread_udp_timer)#
+        #self.thread_udp_timer.wait()#
+        #self.logger.info('Stop timer',extra=self.sw_id)#
+    	return timer
 
     def _packetin_arp(self, msg, header_list):
         src_addr = self.address_data.get_data(ip=header_list[ARP].src_ip)
@@ -1132,6 +1163,27 @@ class VlanRouter(object):
         for gateway in gateways:
             address = self.address_data.get_data(ip=gateway)
             self.send_arp_request(address.default_gw, gateway)
+            print("Variable address.default_gw :",address.default_gw)
+            print("Variable :",gateway)
+
+    def send_udp_hello_all_gw(self):
+        print("DANS send_udp_hello_all_gw")
+        gateways = self.routing_tbl.get_gateways()
+        for gateway in gateways:
+            address = self.address_data.get_data(ip=gateway)
+            print("Variable address.default_gw :",address.default_gw)
+            print("Variable :",gateway)
+            self.send_hello_request_to_gw(self,src_ip,dst_ip,in_port=None)
+
+    def send_hello_request(self, src_ip, dst_ip, in_port=None):
+        for send_port in self.port_data.values():
+            if in_port is None or in_port != send_port.port_no:
+                src_mac = send_port.mac
+                dst_mac = mac_lib.BROADCAST_STR
+                ip_dst = dst_ip
+                inport = send_port.port_no
+                output = send_port.port_no
+                self.ofctl.send_udp()
 
     def send_arp_request(self, src_ip, dst_ip, in_port=None):
         # Send ARP request from all ports.
@@ -1142,10 +1194,19 @@ class VlanRouter(object):
                 arp_target_mac = mac_lib.DONTCARE_STR
                 inport = self.ofctl.dp.ofproto.OFPP_CONTROLLER
                 output = send_port.port_no
+                print("Dans fonction send_arp_request")
+                print("Adresse mac source : ",src_mac)
+                print("Adresse mac de destination : ",dst_mac)
+                print("Adresse mac cible de la requete arp : ",arp_target_mac)
+                print("INPORT : ",inport)
+                print("OUTPUT : ",output)
+                print("Adresse IP SOURCE : ",src_ip)
+                print("Adresse IP DESTINATION : ",dst_ip)
+
                 self.ofctl.send_arp(arp.ARP_REQUEST, self.vlan_id,
                                     src_mac, dst_mac, src_ip, dst_ip,
                                     arp_target_mac, inport, output)
-
+    
     def send_icmp_unreach_error(self, packet_buffer):
         # Send ICMP host unreach error.
         self.logger.info('ARP reply wait timer was timed out.',
@@ -1166,6 +1227,7 @@ class VlanRouter(object):
 
     def _update_routing_tbl(self, msg, header_list):
         # Set flow: routing to gateway.
+        print("Dans _update_routing_tbl")
         out_port = self.ofctl.get_packetin_inport(msg)
         src_mac = header_list[ARP].src_mac
         dst_mac = self.port_data[out_port].mac
@@ -1239,7 +1301,6 @@ class VlanRouter(object):
         self.logger.debug('Receive packet from unknown IP[%s].',
                           ip_addr_ntoa(src_ip), extra=self.sw_id)
         return None
-
 
 class PortData(dict):
     def __init__(self, ports):
@@ -1446,6 +1507,22 @@ class SuspendPacket(object):
         # Start ARP reply wait timer.
         self.wait_thread = hub.spawn(timer, self)
 
+class LinkState(object):
+    def __init__(self,ofctl_fonction,routing_fonction,addr_data_fonction,packet_buffer_fonction):
+        super(LinkState,self).__init__()
+        print("Lancement class LinkState")
+        self.ofctlbis = ofctl_fonction
+        self.routing_tblbis = routing_fonction
+        self.address_databis = addr_data_fonction
+        self.packet_buffer = packet_buffer_fonction
+        #self.thread = hub.spawn(self.envoie_paquet_udp(routing_fonction),self)
+        #self.thread=hub.spawn(self.envoie_paquet_udp(self.ofctlbis))
+        #self.envoie_paquet_udp(self,self.ofctlbis)
+    #def envoie_paquet_udp(self,ofctl):
+        #print("Envoie de paquet udp HELLO PACKET")
+        #self.ofctlbis2 = ofctl
+        #self.ofctlbis2=ofctl
+        #self.ofctlbis2.hello_sender()
 
 class OfCtl(object):
     _OF_VERSIONS = {}
@@ -1624,7 +1701,7 @@ class OfCtl(object):
 
         return msgs
 
-    def hello_sender(self, in_port, protocol_list, vlan_id, src_ip=None):
+    def send_udp(self, in_port, protocol_list, vlan_id, src_mac, dst_mac,dst_ip,src_ip=None):
         csum = 0
         offset = ethernet.ethernet._MIN_LEN
 
@@ -1665,6 +1742,26 @@ class OfCtl(object):
         #Envoi du paquet via le port du router
         self.send_packet_out(in_port, self.dp.ofproto.OFPP_IN_PORT, pkt.data, data_str=str(pkt))
 
+    def build_packet(self, dst_dpid, src_dpid, out_port):
+        #dst = '1' * 6
+        #dst = '00:00:00:00:00:01'
+        #src = '00:00:00:00:00:02' 
+        ethertype = 0x07c3
+        dst = '00:00:00:00:00:01'
+        src = '00:00:00:00:00:02' 
+        e = ethernet.ethernet(dst, src, ethertype)
+        ip = ipv4.ipv4(src='192.168.10.254', dst='192.168.10.1')
+        dst_port=6000
+        u = udp.udp(src_port=out_port,dst_port=dst_port)
+
+        p = packet.Packet()
+        p.add_protocol(e)
+        p.add_protocol(ip)
+        p.add_protocol(u)
+        p.add_protocol(out_port)
+        p.add_protocol(time.time())
+        p.serialize()
+        return p 
 
 
 @OfCtl.register_of_version(ofproto_v1_0.OFP_VERSION)
