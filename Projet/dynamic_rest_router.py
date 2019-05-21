@@ -289,12 +289,10 @@ class RestRouterAPI(app_manager.RyuApp):
 # ============================================
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)#The switch responds with a features reply message to a features request. This message is handled by the Ryu framework, so the Ryu application do not need to process this typically.
     def switch_features_handler(self, ev):
-	print('#################################################"Ca passe dans def switch_features_handler')
         datapath = ev.msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         self.switch_map.update({datapath.id: datapath})
-
         # install table-miss flow entry
         #
         # We specify NO BUFFER to max_len of the output action due to
@@ -305,9 +303,8 @@ class RestRouterAPI(app_manager.RyuApp):
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
-        self.VlanRouter.add_flow(datapath, 0, match, actions)
-	print('Ca passe dans def switch_features_handler')
-
+        self.add_flow(datapath, 0, match, actions)
+	print ('FIN def switch_features_handler')
 # ============================================
 #     FIN     DEV Dijskra
 # ============================================
@@ -460,6 +457,126 @@ class RestRouterAPI(app_manager.RyuApp):
                 datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port,
                 actions=actions)
             datapath.send_msg(out)
+
+#----------------------------------------------------------------------------
+# 		FIN	Dev Dijkstra
+#----------------------------------------------------------------------------
+#----------------------------------------------------------------------------
+# 			Dev Dijkstra
+#----------------------------------------------------------------------------
+
+    def dijkstra(graph, src_ip, destination, visited=[], distances={}, predecessors={}):
+        """ calculates a shortest path tree routed in src_ip
+        """
+        # a few sanity checks
+        if src_ip not in graph:
+            raise TypeError('The root of the shortest path tree cannot be found')
+        if destination not in graph:
+            raise TypeError('The target of the shortest path cannot be found')
+            # ending condition
+        if src_ip == destination:
+            # We build the shortest path and display it
+            path = []
+            pred = destination
+            while pred != None:
+                path.append(pred)
+                pred = predecessors.get(pred, None)
+            print('shortest path:  ' + str(path) + " cost= " + str(distances[destination]))
+            global path2
+            path2=path
+
+        else:
+            # if it is the initial  run, initializes the cost
+            if not visited:
+                distances[src_ip] = 0
+            # visit the neighbors
+            for neighbor in graph[src_ip]:
+                if neighbor not in visited:
+                    new_distance = distances[src_ip] + graph[src_ip][neighbor]
+                    print(new_distance)
+                    if new_distance <= distances.get(neighbor, float('inf')):
+                        distances[neighbor] = new_distance
+                        predecessors[neighbor] = src_ip
+            # mark as visited
+            visited.append(src_ip)
+            # now that all neighbors have been visited: recurse
+            # select the non visited node with lowest distance 'x'
+            # run Dijskstra with src_ip='x'
+            unvisited = {}
+            for k in graph:
+                if k not in visited:
+                    unvisited[k] = distances.get(k, float('inf'))
+            x = min(unvisited, key=unvisited.get)
+            dijkstra(graph, x, destination, visited, distances, predecessors)
+
+
+
+    def dijkstra_longestpath(graph, src_ip, destination, visited=[], distances={}, predecessors={}):
+        """ calculates a shortest path tree routed in src_ip
+        """
+        # a few sanity checks
+        if src_ip not in graph:
+            raise TypeError('The root of the shortest path tree cannot be found')
+        if destination not in graph:
+            raise TypeError('The target of the shortest path cannot be found')
+            # ending condition
+        if src_ip == destination:
+            # We build the shortest path and display it
+            path = []
+            pred = destination
+            while pred != None:
+                path.append(pred)
+                pred = predecessors.get(pred, None)
+            print('shortest path:  ' + str(path) + " cost= " + str(distances[destination]))
+            global path2
+            path2=path
+
+        else:
+            # if it is the initial  run, initializes the cost
+            if not visited:
+                distances[src_ip] = 0
+            # visit the neighbors
+            for neighbor in graph[src_ip]:
+                if neighbor not in visited:
+                    new_distance = distances[src_ip] + graph[src_ip][neighbor]
+                    print(new_distance)
+                    if new_distance <= distances.get(neighbor, float('inf')):
+                        distances[neighbor] = new_distance
+                        predecessors[neighbor] = src_ip
+            # mark as visited
+            visited.append(src_ip)
+            # now that all neighbors have been visited: recurse
+            # select the non visited node with lowest distance 'x'
+            # run Dijskstra with src_ip='x'
+            unvisited = {}
+            for k in graph:
+                if k not in visited:
+                    unvisited[k] = distances.get(k, float('inf'))
+            x = min(unvisited, key=unvisited.get)
+            dijkstra(graph, x, destination, visited, distances, predecessors)
+
+    def add_flow(self, datapath, priority, match,inst=[],table=0):
+	print('#################################################"Ca passe dans def add_flow')
+        ofp = datapath.ofproto
+        ofp_parser = datapath.ofproto_parser
+
+        buffer_id = ofp.OFP_NO_BUFFER
+
+        mod = ofp_parser.OFPFlowMod(
+            datapath=datapath, table_id=table,
+            command=ofp.OFPFC_ADD, priority=priority, buffer_id=buffer_id,
+            out_port=ofp.OFPP_ANY, out_group=ofp.OFPG_ANY,
+            match=match, instructions=inst
+        )
+        datapath.send_msg(mod)
+
+    def dpid_hostLookup(self, lmac):
+
+        host_locate = {1: {'06:54:44:e3:fa:bf', '82:2e:de:93:16:32'}, 2: {'f6:9d:d0:98:ff:b9', 'c6:a6:ea:8c:16:97'}, 3: {'12:ab:7b:e8:56:d0', '1e:39:2a:27:48:73'}}
+        for dpid, mac in host_locate.iteritems():
+            if lmac in mac:
+                return dpid
+
 
 #----------------------------------------------------------------------------
 # 		FIN	Dev Dijkstra
@@ -807,7 +924,6 @@ class VlanRouter(object):
         self.dp = dp
         self.sw_id = {'sw_id': dpid_lib.dpid_to_str(dp.id)}
         self.logger = logger
-
         self.port_data = port_data
         self.address_data = AddressData()
         self.routing_tbl = RoutingTable()
@@ -1459,126 +1575,6 @@ class VlanRouter(object):
         self.logger.debug('Receive packet from unknown IP[%s].',
                           ip_addr_ntoa(src_ip), extra=self.sw_id)
         return None
-
-#----------------------------------------------------------------------------
-# 			Dev Dijkstra
-#----------------------------------------------------------------------------
-
-    def dijkstra(graph, src_ip, destination, visited=[], distances={}, predecessors={}):
-        """ calculates a shortest path tree routed in src_ip
-        """
-        # a few sanity checks
-        if src_ip not in graph:
-            raise TypeError('The root of the shortest path tree cannot be found')
-        if destination not in graph:
-            raise TypeError('The target of the shortest path cannot be found')
-            # ending condition
-        if src_ip == destination:
-            # We build the shortest path and display it
-            path = []
-            pred = destination
-            while pred != None:
-                path.append(pred)
-                pred = predecessors.get(pred, None)
-            print('shortest path:  ' + str(path) + " cost= " + str(distances[destination]))
-            global path2
-            path2=path
-
-        else:
-            # if it is the initial  run, initializes the cost
-            if not visited:
-                distances[src_ip] = 0
-            # visit the neighbors
-            for neighbor in graph[src_ip]:
-                if neighbor not in visited:
-                    new_distance = distances[src_ip] + graph[src_ip][neighbor]
-                    print(new_distance)
-                    if new_distance <= distances.get(neighbor, float('inf')):
-                        distances[neighbor] = new_distance
-                        predecessors[neighbor] = src_ip
-            # mark as visited
-            visited.append(src_ip)
-            # now that all neighbors have been visited: recurse
-            # select the non visited node with lowest distance 'x'
-            # run Dijskstra with src_ip='x'
-            unvisited = {}
-            for k in graph:
-                if k not in visited:
-                    unvisited[k] = distances.get(k, float('inf'))
-            x = min(unvisited, key=unvisited.get)
-            dijkstra(graph, x, destination, visited, distances, predecessors)
-
-
-
-    def dijkstra_longestpath(graph, src_ip, destination, visited=[], distances={}, predecessors={}):
-        """ calculates a shortest path tree routed in src_ip
-        """
-        # a few sanity checks
-        if src_ip not in graph:
-            raise TypeError('The root of the shortest path tree cannot be found')
-        if destination not in graph:
-            raise TypeError('The target of the shortest path cannot be found')
-            # ending condition
-        if src_ip == destination:
-            # We build the shortest path and display it
-            path = []
-            pred = destination
-            while pred != None:
-                path.append(pred)
-                pred = predecessors.get(pred, None)
-            print('shortest path:  ' + str(path) + " cost= " + str(distances[destination]))
-            global path2
-            path2=path
-
-        else:
-            # if it is the initial  run, initializes the cost
-            if not visited:
-                distances[src_ip] = 0
-            # visit the neighbors
-            for neighbor in graph[src_ip]:
-                if neighbor not in visited:
-                    new_distance = distances[src_ip] + graph[src_ip][neighbor]
-                    print(new_distance)
-                    if new_distance <= distances.get(neighbor, float('inf')):
-                        distances[neighbor] = new_distance
-                        predecessors[neighbor] = src_ip
-            # mark as visited
-            visited.append(src_ip)
-            # now that all neighbors have been visited: recurse
-            # select the non visited node with lowest distance 'x'
-            # run Dijskstra with src_ip='x'
-            unvisited = {}
-            for k in graph:
-                if k not in visited:
-                    unvisited[k] = distances.get(k, float('inf'))
-            x = min(unvisited, key=unvisited.get)
-            dijkstra(graph, x, destination, visited, distances, predecessors)
-
-    def add_flow(self, datapath, priority, match,inst=[],table=0):
-        ofp = datapath.ofproto
-        ofp_parser = datapath.ofproto_parser
-
-        buffer_id = ofp.OFP_NO_BUFFER
-
-        mod = ofp_parser.OFPFlowMod(
-            datapath=datapath, table_id=table,
-            command=ofp.OFPFC_ADD, priority=priority, buffer_id=buffer_id,
-            out_port=ofp.OFPP_ANY, out_group=ofp.OFPG_ANY,
-            match=match, instructions=inst
-        )
-        datapath.send_msg(mod)
-
-    def dpid_hostLookup(self, lmac):
-
-        host_locate = {1: {'06:54:44:e3:fa:bf', '82:2e:de:93:16:32'}, 2: {'f6:9d:d0:98:ff:b9', 'c6:a6:ea:8c:16:97'}, 3: {'12:ab:7b:e8:56:d0', '1e:39:2a:27:48:73'}}
-        for dpid, mac in host_locate.iteritems():
-            if lmac in mac:
-                return dpid
-
-
-#----------------------------------------------------------------------------
-# 		FIN	Dev Dijkstra
-#----------------------------------------------------------------------------
 
 class PortData(dict):
     def __init__(self, ports):
