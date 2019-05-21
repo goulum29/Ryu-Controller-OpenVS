@@ -20,7 +20,7 @@ import socket
 import struct
 
 import json
-
+from ryu.controller import event
 from ryu.app.wsgi import ControllerBase
 from ryu.app.wsgi import Response
 from ryu.app.wsgi import WSGIApplication
@@ -49,7 +49,6 @@ from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto import ofproto_v1_2
 from ryu.ofproto import ofproto_v1_3
-
 # =============================
 #          REST API
 # =============================
