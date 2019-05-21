@@ -306,6 +306,7 @@ class RestRouterAPI(app_manager.RyuApp):
         if ev.msg == 'sendudp':
             #self.logger.info('*** Received event: ev.msg = %s', ev.msg)
             print("Envoi UDP",ev.msg)
+            RouterController.link_state(ev.msg)
 
 # REST command template
 def rest_command(func):
@@ -377,6 +378,13 @@ class RouterController(ControllerBase):
         if dp_id in cls._ROUTER_LIST:
             router = cls._ROUTER_LIST[dp_id]
             router.packet_in_handler(msg)
+
+    @set_ev_cls(hello_event.SendUdp)
+    def link_state(cls,msg):
+        dp_id = msg.datapath.id
+        if dp_id in cls._ROUTER_LIST:
+            router = cls._ROUTER_LIST[dp_id]
+            router.send_udp_hello_all_gw()
 
     # GET /router/{switch_id}
     @rest_command
@@ -1186,6 +1194,15 @@ class VlanRouter(object):
                 arp_target_mac = mac_lib.DONTCARE_STR
                 inport = self.ofctl.dp.ofproto.OFPP_CONTROLLER
                 output = send_port.port_no
+                print("Dans fonction send_arp_request")
+                print("Adresse mac source : ",src_mac)
+                print("Adresse mac de destination : ",dst_mac)
+                print("Adresse mac cible de la requete arp : ",arp_target_mac)
+                print("INPORT : ",inport)
+                print("OUTPUT : ",output)
+                print("Adresse IP SOURCE : ",src_ip)
+                print("Adresse IP DESTINATION : ",dst_ip)
+
                 self.ofctl.send_arp(arp.ARP_REQUEST, self.vlan_id,
                                     src_mac, dst_mac, src_ip, dst_ip,
                                     arp_target_mac, inport, output)
@@ -1210,6 +1227,7 @@ class VlanRouter(object):
 
     def _update_routing_tbl(self, msg, header_list):
         # Set flow: routing to gateway.
+        print("Dans _update_routing_tbl")
         out_port = self.ofctl.get_packetin_inport(msg)
         src_mac = header_list[ARP].src_mac
         dst_mac = self.port_data[out_port].mac
