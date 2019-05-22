@@ -606,9 +606,12 @@ class Router(dict):
                 self.logger.debug('Drop unknown vlan packet. [vlan_id=%d]',
                                   vlan_id, extra=self.sw_id)
     def _linkstate(self):
-    	print(self.dp)
-    	print(self.sw_id)
-    	sel
+    	print("DataPath : " , self.dp)
+    	print("SwitchID : ", self.sw_id)
+    	for vlan_router in self.values():
+    		vlan_router.send_udp_hello_all_gw()
+    		print("Boucle _LinkState, tour numero : ", vlan_router)
+
 
     def _cyclic_update_routing_tbl(self):
         while True:
@@ -1188,7 +1191,7 @@ class VlanRouter(object):
             print("Variable :",gateway)
             self.send_hello_request_to_gw(self,src_ip,dst_ip,in_port=None)
 
-    def send_hello_request(self, src_ip, dst_ip, in_port=None):
+    def send_hello_request_to_gw(self, src_ip, dst_ip, in_port=None):
         for send_port in self.port_data.values():
             if in_port is None or in_port != send_port.port_no:
                 src_mac = send_port.mac
