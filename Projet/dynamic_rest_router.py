@@ -227,7 +227,7 @@ class RestRouterAPI(app_manager.RyuApp):
 # ============================================
 #          DEV Dijskra
 # ============================================
-    global dijkstra, receive_arp, dpid_hostLookup,dijkstra_longestpath
+    global dijkstra, receive_arp, dpid_hostLookup
     global path2
     path2 = [0]
 	
@@ -287,31 +287,20 @@ class RestRouterAPI(app_manager.RyuApp):
 # ============================================
 #          DEV Dijskra
 # ============================================
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)#The switch responds with a features reply message to a features request. This message is handled by the Ryu framework, so the Ryu application do not need to process this typically.
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) 
     def switch_features_handler(self, ev):
         datapath = ev.msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         self.switch_map.update({datapath.id: datapath})
-        # install table-miss flow entry
-        #
-        # We specify NO BUFFER to max_len of the output action due to
-        # OVS bug. At this moment, if we specify a lesser number, e.g.,
-        # 128, OVS will send Packet-In with invalid buffer_id and
-        # truncated packet data. In that case, we cannot output packets
-        # correctly.  The bug has been fixed in OVS v2.1.0.
         match = parser.OFPMatch()
-        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
-                                          ofproto.OFPCML_NO_BUFFER)]
-        self.add_flow(datapath, 0, match, actions)
-# ============================================
-#     FIN     DEV Dijskra
-# ============================================
-# ============================================
-#         Dev 2 pour Dijskra
-# ============================================
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER) # Fonction appele a chaque OpenFlow entrant  
-    def _packet_in_handler(self, ev):
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,ofproto.OFPCML_NO_BUFFER)] # NO BUFFER to max_len of the output action due to
+        self.add_flow(datapath, 0, match, actions) 
+ 
+
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
+    def packet_in_handler(self, ev):
+        RouterController.packet_in_handler(ev.msg)	#A ne pas supprimer 
         pkt = packet.Packet(ev.msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
         arp_pkt = pkt.get_protocol(arp.arp)
@@ -366,8 +355,9 @@ class RestRouterAPI(app_manager.RyuApp):
         self.g.add_edges_from(links)
         #print(links)
         #print(self.g)
-	topo = {'1': {'2': 1, '3': 1},'2': {'1': 1, '3': 1},'3': {'1': 1, '2': 1}}
-
+	mettric = 1
+	topo = {'1': {'2': mettric, '3': mettric},'2': {'1': mettric, '3': mettric},'3': {'1': mettric, '2': mettric}}	
+	
         dst_dpid = dpid_hostLookup(self, dst)
         print("dpid",str(dpid))
         print("dst",dst)
@@ -377,22 +367,21 @@ class RestRouterAPI(app_manager.RyuApp):
         src=str(src)
         dst=str(dst)
         print("dst dpid",str(dst_dpid))
-
-        if ((src == '42:97:0c:3b:eb:45' and dst == 'ae:6e:17:4e:a4:4b') or (src == '42:97:0c:3b:eb:45' and dst == '52:be:16:56:b4:47') or (
-            src == 'ae:6e:17:4e:a4:4b' and dst == '42:97:0c:3b:eb:45') or(src == 'ae:6e:17:4e:a4:4b' and dst == '52:be:16:56:b4:47') or (
-            src == '52:be:16:56:b4:47' and dst == '42:97:0c:3b:eb:45') or (src == '52:be:16:56:b4:47' and dst == 'ae:6e:17:4e:a4:4b')):
+	print("###eth.dst",str(eth.dst))
+	print("###src_ip",str(src_ip))
+	print("###destination",str(destination))
+	
+        if (src == eth.src  and dst == eth.dst):
          dijkstra(topo, str(dpid), str(dst_dpid))
          global path2
-	 print('######################################Ca passe dans def _packet_in_handler')
          path3= list(map(int, path2))
          print(path3)
          path3.reverse()
         else:
-            dijkstra_longestpath(topo, str(dpid), str(dst_dpid))
+            dijkstra(topo, str(dpid), str(dst_dpid))
             path3 = list(map(int, path2))
             print(path3)
             path3.reverse()
-	    print('######################################Ca passe dans def _packet_in_handler')
 
         if not self.g.has_node(eth.src):
             print("add %s in self.net" % eth.src)
@@ -454,38 +443,24 @@ class RestRouterAPI(app_manager.RyuApp):
                 actions=actions)
             datapath.send_msg(out)
 
-#----------------------------------------------------------------------------
-# 		FIN	Dev Dijkstra
-#----------------------------------------------------------------------------
-#----------------------------------------------------------------------------
-# 			Dev Dijkstra
-#----------------------------------------------------------------------------
-
     def dijkstra(graph, src_ip, destination, visited=[], distances={}, predecessors={}):
-        """ calculates a shortest path tree routed in src_ip
-        """
-        # a few sanity checks
+	print("######################################graph",graph)
         if src_ip not in graph:
-            raise TypeError('The root of the shortest path tree cannot be found')
+            raise TypeError('emmeteur introuvable dans l arbre')
         if destination not in graph:
-            raise TypeError('The target of the shortest path cannot be found')
-            # ending condition
+            raise TypeError('destinataire introuvable dans l arbre') 
         if src_ip == destination:
-            # We build the shortest path and display it
             path = []
             pred = destination
             while pred != None:
                 path.append(pred)
                 pred = predecessors.get(pred, None)
-            print('shortest path:  ' + str(path) + " cost= " + str(distances[destination]))
+            print('Le plus court chemin pour ' + str(path) + " avec un cout de " + str(distances[destination]))
             global path2
             path2=path
-
         else:
-            # if it is the initial  run, initializes the cost
             if not visited:
                 distances[src_ip] = 0
-            # visit the neighbors
             for neighbor in graph[src_ip]:
                 if neighbor not in visited:
                     new_distance = distances[src_ip] + graph[src_ip][neighbor]
@@ -493,7 +468,6 @@ class RestRouterAPI(app_manager.RyuApp):
                     if new_distance <= distances.get(neighbor, float('inf')):
                         distances[neighbor] = new_distance
                         predecessors[neighbor] = src_ip
-            # mark as visited
             visited.append(src_ip)
             # now that all neighbors have been visited: recurse
             # select the non visited node with lowest distance 'x'
@@ -502,59 +476,9 @@ class RestRouterAPI(app_manager.RyuApp):
             for k in graph:
                 if k not in visited:
                     unvisited[k] = distances.get(k, float('inf'))
-            x = min(unvisited, key=unvisited.get)
+            #x = min(unvisited, key=unvisited.get)
+	    x = unvisited
             dijkstra(graph, x, destination, visited, distances, predecessors)
-
-
-
-    def dijkstra_longestpath(graph, src_ip, destination, visited=[], distances={}, predecessors={}):
-        """ calculates a shortest path tree routed in src_ip
-        """
-        # a few sanity checks
-        if src_ip not in graph:
-	    print('### 1/ src_ip not in graph')
-            raise TypeError('The root of the shortest path tree cannot be found')
-        if destination not in graph:
-	    print('### 2/ destination not in graph')
-            #raise TypeError('The target of the shortest path cannot be found')
-            # ending condition
-        if src_ip == destination:
-	    print('### 3/ src_ip == destination')
-            # We build the shortest path and display it
-            path = []
-            pred = destination
-            while pred != None:
-                path.append(pred)
-                pred = predecessors.get(pred, None)
-            print('shortest path:  ' + str(path) + " cost= " + str(distances[destination]))
-            global path2
-            path2=path
-        else:
-	    print('### 4/ else ')
-            # if it is the initial  run, initializes the cost
-            if not visited:
-                distances[src_ip] = 0
-            # visit the neighbors
-            for neighbor in graph[src_ip]:
-                if neighbor not in visited:
-                    new_distance = distances[src_ip] + graph[src_ip][neighbor]
-                    print(new_distance)
-                    if new_distance <= distances.get(neighbor, float('inf')):
-                        distances[neighbor] = new_distance
-                        predecessors[neighbor] = src_ip
-            # mark as visited
-            visited.append(src_ip)
-            # now that all neighbors have been visited: recurse
-            # select the non visited node with lowest distance 'x'
-            # run Dijskstra with src_ip='x'
-            unvisited = {}
-            for a in graph:
-                if a not in visited:
-                    unvisited[a] = distances.get(a, float('inf'))          	    
-	    #x = min(unvisited, key=unvisited.get)
-	    x = visited
-            dijkstra(graph, x, destination, visited, distances, predecessors)
-
 
     def add_flow(self, datapath, priority, match,inst=[],table=0):
         ofp = datapath.ofproto
@@ -588,10 +512,6 @@ class RestRouterAPI(app_manager.RyuApp):
             RouterController.register_router(ev.dp)
         else:
             RouterController.unregister_router(ev.dp)
-
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def packet_in_handler(self, ev):
-        RouterController.packet_in_handler(ev.msg)
 
     def _stats_reply_handler(self, ev):
         msg = ev.msg
