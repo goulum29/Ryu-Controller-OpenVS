@@ -302,10 +302,13 @@ class RestRouterAPI(app_manager.RyuApp):
 
     # TODO: Update routing table when port status is changed.
     @set_ev_cls(hello_event.SendUdp)
-    def _test_event_handler(self, ev):
+    def _test_event_handler(self,ev):
         if ev.msg == 'sendudp':
             #self.logger.info('*** Received event: ev.msg = %s', ev.msg)
             print("Envoi UDP",ev.msg)
+            print()
+            print()
+            print()
             RouterController.link_state(ev.msg)
 
 # REST command template
@@ -379,12 +382,18 @@ class RouterController(ControllerBase):
             router = cls._ROUTER_LIST[dp_id]
             router.packet_in_handler(msg)
 
-    @set_ev_cls(hello_event.SendUdp)
+    @classmethod
     def link_state(cls,msg):
-        dp_id = msg.datapath.id
-        if dp_id in cls._ROUTER_LIST:
-            router = cls._ROUTER_LIST[dp_id]
-            router.send_udp_hello_all_gw()
+    	nb_router = len(cls._ROUTER_LIST)
+    	print("Le nombre de router est de : ", nb_router)
+    	print("NB ROUTEUR : ",cls._ROUTER_LIST)#Liste router   	
+    	print(range(len(cls._ROUTER_LIST)+1))
+    	for router_id in range(len(cls._ROUTER_LIST)):
+        	dp_id = router_id + 1
+        	print("Pour le router ID = ",dp_id)
+        	router = cls._ROUTER_LIST[dp_id]
+        	router._linkstate()
+        	print("Tour numero ",router_id)
 
     # GET /router/{switch_id}
     @rest_command
@@ -596,6 +605,10 @@ class Router(dict):
             else:
                 self.logger.debug('Drop unknown vlan packet. [vlan_id=%d]',
                                   vlan_id, extra=self.sw_id)
+    def _linkstate(self):
+    	print(self.dp)
+    	print(self.sw_id)
+    	sel
 
     def _cyclic_update_routing_tbl(self):
         while True:
