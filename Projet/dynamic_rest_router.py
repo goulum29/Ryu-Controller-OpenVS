@@ -596,6 +596,8 @@ class Router(dict):
         if header_list:
             # Check vlan-tag
             vlan_id = VLANID_NONE
+            if UDP in header_list:
+                print("UDP recu")
             if VLAN in header_list:
                 vlan_id = header_list[VLAN].vid
 
@@ -1677,19 +1679,61 @@ class OfCtl(object):
         pkt.add_protocol(i)
         pkt.add_protocol(ic)
         pkt.serialize()
-
+        print("ICMP : Serialise ICMP")
+        print("ICMP : IP DESTINATION : ",src_ip)
+        print("ICMP : IP SOURCE : ", ip.src)
+        print("ICMP : ADRESSE MAC SOURCE : ",eth.src)
+        print("ICMP : ADRESSE MAC DESTINATION : ",eth.dst )
+        print("ICMP : PORT SORTIE : ",in_port)
+        print("")
         # Send packet out
         self.send_packet_out(in_port, self.dp.ofproto.OFPP_IN_PORT,
                              pkt.data, data_str=str(pkt))
-    
+    def send_udp(self, in_port,output,vlan_id, dst_mac, src_mac,dst_ip,src_ip=None):
+        # Generate UDP Packet
+        if vlan_id != VLANID_NONE:
+            ether_proto = ether.ETH_TYPE_8021Q
+            pcp = 0
+            cfi = 0
+            vlan_ether = ether.ETH_TYPE_IP
+            v = vlan.vlan(pcp, cfi, vlan_id, vlan_ether)
+        else:
+            ether_proto = ether.ETH_TYPE_IP
+
+        pkt = packet.Packet()
+        e = ethernet.ethernet(dst_mac, src_mac, ether_proto)
+        i = ipv4.ipv4(src=src_ip,dst=dst_ip,ttl=64,proto=17)
+        dst_p=6000
+        src_p=20000
+        u = udp.udp(src_port=src_p,dst_port=dst_p)
+        pkt.add_protocol(e)
+        if vlan_id != VLANID_NONE:
+            pkt.add_protocol(v)
+        pkt.add_protocol(i)
+        pkt.add_protocol(u)
+        pkt.serialize()
+        print("UDP : Paquet Serialize")
+        print("UDP : VLAN ID : " ,vlan_id)
+        print("UDP : Address MAC source : ", src_mac)
+        print("UDP : Address MAC destination : ", dst_mac)
+        print("UDP : Adress IP source : ", src_ip)
+        print("UDP : Adress IP destination : ",dst_ip)
+        print("UDP : Port Destination : ", dst_p)
+        print("UDP : Port Source : ", src_p)
+        print("UDP : Interface IN : ", in_port)
+        print("UDP : Interface de sortie : ", output)
+        print(repr(pkt))#affichage du paquet
+
+        # Send packet out
+        self.send_packet_out(output, output, pkt.data, data_str=str(pkt))    
     def send_packet_out(self, in_port, output, data, data_str=None):
         actions = [self.dp.ofproto_parser.OFPActionOutput(output, 0)]
-        self.dp.send_packet_out(buffer_id=UINT32_MAX, in_port=in_port,
-                                actions=actions, data=data)
+        self.dp.send_packet_out(buffer_id=UINT32_MAX, in_port=in_port,actions=actions, data=data)
+        print("Apres envoi du paquet")
         # TODO: Packet library convert to string
-        # if data_str is None:
-        #     data_str = str(packet.Packet(data))
-        # self.logger.debug('Packet out = %s', data_str, extra=self.sw_id)
+        if data_str is None:
+            data_str = str(packet.Packet(data))
+            self.logger.debug('Packet out = %s', data_str, extra=self.sw_id)
 
     def set_normal_flow(self, cookie, priority):
         out_port = self.dp.ofproto.OFPP_NORMAL
@@ -1719,47 +1763,6 @@ class OfCtl(object):
             del waiters_per_dp[stats.xid]
 
         return msgs
-
-    def send_udp(self, in_port,output,vlan_id, dst_mac, src_mac,dst_ip,src_ip=None):
-        # Generate UDP Packet
-        if vlan_id != VLANID_NONE:
-            ether_proto = ether.ETH_TYPE_8021Q
-            pcp = 0
-            cfi = 0
-            vlan_ether = ether.ETH_TYPE_ARP
-            v = vlan.vlan(pcp, cfi, vlan_id, vlan_ether)
-        else:
-            ether_proto = ether.ETH_TYPE_ARP
-        hwtype = 1
-        arp_proto = ether.ETH_TYPE_IP
-        hlen = 6
-        plen = 4
-
-        pkt = packet.Packet()
-        e = ethernet.ethernet(dst_mac, src_mac, ether_proto)
-        i = ipv4.ipv4(src=src_ip,dst=dst_ip)
-        dst_p=6000
-        src_p=20000
-        u = udp.udp(src_port=src_p,dst_port=dst_p)
-        pkt.add_protocol(e)
-        if vlan_id != VLANID_NONE:
-            pkt.add_protocol(v)
-        pkt.add_protocol(i)
-        pkt.add_protocol(u)
-        pkt.serialize()
-        print("UDP : Paquet Serialize")
-        print("UDP : VLAN ID : " ,vlan_id)
-        print("UDP : Address MAC source : ", src_mac)
-        print("UDP : Address MAC destination : ", dst_mac)
-        print("UDP : Adress IP source : ", src_ip)
-        print("UDP : Adress IP destination : ",dst_ip)
-        print("UDP : Port Destination : ", dst_p)
-        print("UDP : Port Source : ",src_p)
-        print("UDP : Interface IN : ", in_port)
-        print("UDP : Interface de sortie : ", output)
-
-        # Send packet out
-        self.send_packet_out(in_port, output, pkt.data, data_str=str(pkt))
 
     def build_packet(self, dst_dpid, src_dpid, out_port):
         #dst = '1' * 6
