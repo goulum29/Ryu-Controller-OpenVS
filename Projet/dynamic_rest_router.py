@@ -1187,8 +1187,8 @@ class VlanRouter(object):
         gateways = self.routing_tbl.get_gateways()
         for gateway in gateways:
             address = self.address_data.get_data(ip=gateway)
-            print("Variable address.default_gw :",address.default_gw)
-            print("Variable :",gateway)
+            print("Variable address.default_gw sera utilise comme ip source:",address.default_gw)
+            print("Variable gateway sera utilise comme ip de destination :",gateway)
             src_ip = address.default_gw
             dst_ip = gateway
             self.send_hello_request_to_gw(src_ip,dst_ip,in_port=None)
@@ -1213,14 +1213,14 @@ class VlanRouter(object):
                 arp_target_mac = mac_lib.DONTCARE_STR
                 inport = self.ofctl.dp.ofproto.OFPP_CONTROLLER
                 output = send_port.port_no
-                print("Dans fonction send_arp_request")
-                print("Adresse mac source : ",src_mac)
-                print("Adresse mac de destination : ",dst_mac)
-                print("Adresse mac cible de la requete arp : ",arp_target_mac)
-                print("INPORT : ",inport)
-                print("OUTPUT : ",output)
-                print("Adresse IP SOURCE : ",src_ip)
-                print("Adresse IP DESTINATION : ",dst_ip)
+                print("ARP : Dans fonction send_arp_request")
+                print("ARP : Adresse mac source : ",src_mac)
+                print("ARP : Adresse mac de destination : ",dst_mac)
+                print("ARP : Adresse mac cible de la requete arp : ",arp_target_mac)
+                print("ARP : INPORT : ",inport)
+                print("ARP : OUTPUT : ",output)
+                print("ARP : Adresse IP SOURCE : ",src_ip)
+                print("ARP : Adresse IP DESTINATION : ",dst_ip)
 
                 self.ofctl.send_arp(arp.ARP_REQUEST, self.vlan_id,
                                     src_mac, dst_mac, src_ip, dst_ip,
@@ -1747,16 +1747,16 @@ class OfCtl(object):
         pkt.add_protocol(i)
         pkt.add_protocol(u)
         pkt.serialize()
-        print("Paquet Serialize")
-        print("VLAN ID : " ,vlan_id)
-        print("Address MAC source : ", src_mac)
-        print("Address MAC destination : ", dst_mac)
-        print("Adress IP source : ", src_ip)
-        print("Adress IP destination : ",dst_ip)
-        print("Port Destination : ", dst_p)
-        print("Port Source : ",src_p)
-        print("Interface IN : ", in_port)
-        print("Interface de sortie : ", output)
+        print("UDP : Paquet Serialize")
+        print("UDP : VLAN ID : " ,vlan_id)
+        print("UDP : Address MAC source : ", src_mac)
+        print("UDP : Address MAC destination : ", dst_mac)
+        print("UDP : Adress IP source : ", src_ip)
+        print("UDP : Adress IP destination : ",dst_ip)
+        print("UDP : Port Destination : ", dst_p)
+        print("UDP : Port Source : ",src_p)
+        print("UDP : Interface IN : ", in_port)
+        print("UDP : Interface de sortie : ", output)
 
         # Send packet out
         self.send_packet_out(in_port, output, pkt.data, data_str=str(pkt))
