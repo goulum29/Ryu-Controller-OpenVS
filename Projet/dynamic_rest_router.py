@@ -1179,7 +1179,7 @@ class VlanRouter(object):
         for gateway in gateways:
             address = self.address_data.get_data(ip=gateway)
             self.send_arp_request(address.default_gw, gateway)
-            print("Variable address.default_gw :",address.default_gw)
+            print("Variable address.default_gw dans send_arp_all :",address.default_gw)
             print("Variable :",gateway)
 
     def send_udp_hello_all_gw(self):
@@ -1189,9 +1189,12 @@ class VlanRouter(object):
             address = self.address_data.get_data(ip=gateway)
             print("Variable address.default_gw :",address.default_gw)
             print("Variable :",gateway)
-            self.send_hello_request_to_gw(self,src_ip,dst_ip,in_port=None)
+            src_ip = address.default_gw
+            dst_ip = gateway
+            self.send_hello_request_to_gw(src_ip,dst_ip,in_port=None)
 
-    def send_hello_request_to_gw(self, src_ip, dst_ip, in_port=None):
+    def send_hello_request_to_gw(self, src_ip, dst_ip,in_port=None):
+    	print("AFFICHAGE VARIABLE in_port avant for : " ,in_port)
         for send_port in self.port_data.values():
             if in_port is None or in_port != send_port.port_no:
                 src_mac = send_port.mac
