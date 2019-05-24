@@ -604,9 +604,8 @@ class Router(dict):
             # Event dispatch
             if vlan_id in self:
                 self[vlan_id].packet_in_handler(msg, header_list)
-            else:
-                self.logger.debug('Drop unknown vlan packet. [vlan_id=%d]',
-                                  vlan_id, extra=self.sw_id)
+            #else:
+                #self.logger.debug('Drop unknown vlan packet. [vlan_id=%d]',vlan_id, extra=self.sw_id)#Annulation des fonctions qui drop les paquets
     def _linkstate(self):
     	print("DataPath : " , self.dp)
     	print("SwitchID : ", self.sw_id)
@@ -1606,7 +1605,6 @@ class OfCtl(object):
             pkt.add_protocol(v)
         pkt.add_protocol(a)
         pkt.serialize()
-
         # Send packet out
         self.send_packet_out(in_port, output, pkt.data, data_str=str(pkt))
 
@@ -1702,7 +1700,7 @@ class OfCtl(object):
 
         pkt = packet.Packet()
         e = ethernet.ethernet(dst_mac, src_mac, ether_proto)
-        i = ipv4.ipv4(src=src_ip,dst=dst_ip,ttl=64,proto=17)
+        i = ipv4.ipv4(src=src_ip,dst=dst_ip,ttl=64,proto=inet.IPPROTO_UDP)
         dst_p=6000
         src_p=20000
         u = udp.udp(src_port=src_p,dst_port=dst_p)
@@ -1729,7 +1727,7 @@ class OfCtl(object):
     def send_packet_out(self, in_port, output, data, data_str=None):
         actions = [self.dp.ofproto_parser.OFPActionOutput(output, 0)]
         self.dp.send_packet_out(buffer_id=UINT32_MAX, in_port=in_port,actions=actions, data=data)
-        print("Apres envoi du paquet")
+        print("Apres envoi du paquet", actions)
         # TODO: Packet library convert to string
         if data_str is None:
             data_str = str(packet.Packet(data))
