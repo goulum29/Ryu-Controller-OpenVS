@@ -1723,7 +1723,7 @@ class OfCtl(object):
         print(repr(pkt))#affichage du paquet
 
         # Send packet out
-        self.send_packet_out(output, output, pkt.data, data_str=str(pkt))    
+        self.send_packet_out(4294967294, output, pkt.data, data_str=str(pkt))    
     def send_packet_out(self, in_port, output, data, data_str=None):
         actions = [self.dp.ofproto_parser.OFPActionOutput(output, 0)]
         self.dp.send_packet_out(buffer_id=UINT32_MAX, in_port=in_port,actions=actions, data=data)
