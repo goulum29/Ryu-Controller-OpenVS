@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import time
+
 import logging
 import numbers
 import socket
@@ -50,20 +50,7 @@ from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto import ofproto_v1_2
 from ryu.ofproto import ofproto_v1_3
 
-# ============================================
-#          Import pour Dijskra
-# ============================================
-from ryu.base import app_manager
-from ryu.controller.handler import CONFIG_DISPATCHER
-from ryu.lib.packet import ether_types
-from ryu.lib import mac 
-from ryu.lib.mac import haddr_to_bin
-from ryu.controller import mac_to_port
-import networkx as nx
-from ryu.topology import event, switches
-from ryu.topology.api import get_switch, get_link
-import array
-from ryu.app.ofctl.api import get_datapath
+
 # =============================
 #          REST API
 # =============================
@@ -176,7 +163,8 @@ PRIORITY_L2_SWITCHING = 4
 PRIORITY_IP_HANDLING = 5
 
 PRIORITY_TYPE_ROUTE = 'priority_route'
-TIMER_EXIST = False
+
+
 
 def get_priority(priority_type, vid=0, route=None):
     log_msg = None
@@ -210,10 +198,95 @@ def get_priority_type(priority, vid):
         priority -= PRIORITY_VLAN_SHIFT
     return priority
 
+def make_edge(start, end, cost=1):
+  return Edge(start, end, cost)
 
 class NotFoundError(RyuException):
     message = 'Router SW is not connected. : switch_id=%(switch_id)s'
 
+"""class Graph(dict):
+    def __init__(self):
+    	inf = float('inf')
+    	Edge = ('Edge', 'start, end, cost')
+    	graph= self.VlanRouter._packetin_to_node
+
+    def __init__(self, edges):
+        # let's check that the data is right
+        wrong_edges = [i for i in edges if len(i) not in [2, 3]]
+        if wrong_edges:
+            raise ValueError('Wrong edges data: {}'.format(wrong_edges))
+
+        self.edges = [make_edge(*edge) for edge in edges]
+
+    @property
+    def vertices(self):
+        return set(
+            sum(
+                ([edge.start, edge.end] for edge in self.edges), []
+            )
+        )
+
+    def get_node_pairs(self, n1, n2, both_ends=True):
+        if both_ends:
+            node_pairs = [[n1, n2], [n2, n1]]
+        else:
+            node_pairs = [[n1, n2]]
+        return node_pairs
+
+    def remove_edge(self, n1, n2, both_ends=True):
+        node_pairs = self.get_node_pairs(n1, n2, both_ends)
+        edges = self.edges[:]
+        for edge in edges:
+            if [edge.start, edge.end] in node_pairs:
+                self.edges.remove(edge)
+
+    def add_edge(self, n1, n2, cost=1, both_ends=True):
+        node_pairs = self.get_node_pairs(n1, n2, both_ends)
+        for edge in self.edges:
+            if [edge.start, edge.end] in node_pairs:
+                return ValueError('Edge {} {} already exists'.format(n1, n2))
+
+        self.edges.append(Edge(start=n1, end=n2, cost=cost))
+        if both_ends:
+            self.edges.append(Edge(start=n2, end=n1, cost=cost))
+
+    @property
+    def neighbours(self):
+        neighbours = {vertex: set() for vertex in self.vertices}
+        for edge in self.edges:
+            neighbours[edge.start].add((edge.end, edge.cost))
+
+        return neighbours
+
+    def dijkstra(self, source, dest):
+        assert source in self.vertices, 'Such source node doesn\'t exist'
+        distances = {vertex: inf for vertex in self.vertices}
+	print('##########################dans dijkstra')
+        previous_vertices = {
+            vertex: None for vertex in self.vertices
+        }
+        distances[source] = 0
+        vertices = self.vertices.copy()
+
+        while vertices:
+            current_vertex = min(
+                vertices, key=lambda vertex: distances[vertex])
+            vertices.remove(current_vertex)
+            if distances[current_vertex] == inf:
+                break
+            for neighbour, cost in self.neighbours[current_vertex]:
+                alternative_route = distances[current_vertex] + cost
+                if alternative_route < distances[neighbour]:
+                    distances[neighbour] = alternative_route
+                    previous_vertices[neighbour] = current_vertex
+
+        path, current_vertex = deque(), dest
+        while previous_vertices[current_vertex] is not None:
+            path.appendleft(current_vertex)
+            current_vertex = previous_vertices[current_vertex]
+        if path:
+            path.appendleft(current_vertex)
+        return path""" 
 
 class CommandFailure(RyuException):
     pass
@@ -224,18 +297,9 @@ class RestRouterAPI(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION,
                     ofproto_v1_2.OFP_VERSION,
                     ofproto_v1_3.OFP_VERSION]
-# ============================================
-#          DEV Dijskra
-# ============================================
-    global dijkstra, receive_arp, dpid_hostLookup
-    global path2
-    path2 = [0]
-	
+
     _CONTEXTS = {'dpset': dpset.DPSet,
                  'wsgi': WSGIApplication}
-# ============================================
-#       FIN   DEV Dijskra
-# ============================================
 
     def __init__(self, *args, **kwargs):
         super(RestRouterAPI, self).__init__(*args, **kwargs)
@@ -246,10 +310,6 @@ class RestRouterAPI(app_manager.RyuApp):
         wsgi = kwargs['wsgi']
         self.waiters = {}
         self.data = {'waiters': self.waiters}
-        self.mac_to_port = {}
-        self.net = nx.DiGraph()
-        self.g = nx.DiGraph()
-        self.switch_map = {}
 
         mapper = wsgi.mapper
         wsgi.registory['RouterController'] = self.data
@@ -284,227 +344,6 @@ class RestRouterAPI(app_manager.RyuApp):
                        requirements=requirements,
                        action='delete_vlan_data',
                        conditions=dict(method=['DELETE']))
-# ============================================
-#          DEV Dijskra
-# ============================================
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER) 
-    def switch_features_handler(self, ev):
-        datapath = ev.msg.datapath
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        self.switch_map.update({datapath.id: datapath})
-        match = parser.OFPMatch()
-        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,ofproto.OFPCML_NO_BUFFER)] # NO BUFFER to max_len of the output action due to
-        self.add_flow(datapath, 0, match, actions) 
- 
-
-    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def packet_in_handler(self, ev):
-        RouterController.packet_in_handler(ev.msg)	#A ne pas supprimer 
-        pkt = packet.Packet(ev.msg.data)
-        eth = pkt.get_protocols(ethernet.ethernet)[0]
-        arp_pkt = pkt.get_protocol(arp.arp)
-        ip4_pkt = pkt.get_protocol(ipv4.ipv4)
-        if arp_pkt:
-            pak = arp_pkt
-        elif ip4_pkt:
-            pak = ip4_pkt
-        else:
-            pak = eth
-        self.logger.info('  _packet_in_handler: src_mac -> %s' % eth.src)
-        self.logger.info('  _packet_in_handler: dst_mac -> %s' % eth.dst)
-        self.logger.info('  _packet_in_handler: %s' % pak)
-        self.logger.info('  ------')
-
-        if eth.ethertype == ether_types.ETH_TYPE_LLDP or eth.ethertype == ether_types.ETH_TYPE_IPV6:
-            # ignore lldp packet
-            return
-
-        dst = eth.src
-        src = eth.dst
-        msg = ev.msg
-        datapath = msg.datapath
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        in_port = msg.match['in_port']
-        dpid = datapath.id
-        self.mac_to_port.setdefault(dpid, {})
-        self.logger.info(">>>>>>> packet in %s %s %s %s", dpid, src, dst, in_port)
-        # learn a mac address to avoid FLOOD next time.
-        self.mac_to_port[dpid][src] = in_port
-        print(src)
-        print(dst)
-
-        if dst in self.mac_to_port[dpid]:
-            out_port = self.mac_to_port[dpid][dst]
-        else:
-            out_port = ofproto.OFPP_FLOOD
-        actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
-
-
-        switch_list = get_switch(self, None)
-        switches = [switch.dp.id for switch in switch_list]
-        links_list = get_link(self, None)
-        link_port={(link.src.dpid,link.dst.dpid):link.src.port_no for link in links_list}
-        # g = nx.DiGraph()
-        self.g.add_nodes_from(switches)
-        links = [(link.src.dpid,link.dst.dpid,{'port':link.src.port_no}) for link in links_list]
-        print(links)
-        self.g.add_edges_from(links)
-        links = [(link.dst.dpid,link.src.dpid,{'port':link.dst.port_no})  for link in links_list]
-        self.g.add_edges_from(links)
-        #print(links)
-        #print(self.g)
-	mettric = 1
-	topo = {'1': {'2': mettric, '3': mettric},'2': {'1': mettric, '3': mettric},'3': {'1': mettric, '2': mettric}}	
-	
-        dst_dpid = dpid_hostLookup(self, dst)
-        print("dpid",str(dpid))
-        print("dst",dst)
-        # if(dst=='ff:ff:ff:ff:ff:ff'):
-        #     return()
-        path3=[]
-        src=str(src)
-        dst=str(dst)
-        print("dst dpid",str(dst_dpid))
-	print("###eth.dst",str(eth.dst))
-	print("###src_ip",str(src_ip))
-	print("###destination",str(destination))
-	
-        if (src == eth.src  and dst == eth.dst):
-         dijkstra(topo, str(dpid), str(dst_dpid))
-         global path2
-         path3= list(map(int, path2))
-         print(path3)
-         path3.reverse()
-        else:
-            dijkstra(topo, str(dpid), str(dst_dpid))
-            path3 = list(map(int, path2))
-            print(path3)
-            path3.reverse()
-
-        if not self.g.has_node(eth.src):
-            print("add %s in self.net" % eth.src)
-            self.g.add_node(eth.src)
-            self.g.add_edge(eth.src, datapath.id)
-            self.g.add_edge(datapath.id, eth.src, {'port': in_port})
-            print(self.g.node)
-
-        if not self.g.has_node(eth.dst):
-            print("add %s in self.net" % eth.dst)
-            self.g.add_node(eth.dst)
-            self.g.add_edge(eth.dst, datapath.id)
-            self.g.add_edge(datapath.id, eth.dst, {'port': in_port})
-            print(self.g.node)
-
-       # path3=[13,3,1]
-        print("before loop")
-        if(path3!=[]):
-         if self.g.has_node(eth.dst):
-            next_match = parser.OFPMatch(eth_dst=eth.dst)
-            back_match = parser.OFPMatch(eth_dst=eth.src)
-            print(path3)
-            for on_path_switch in range(1, len(path3) - 1):
-                print("hi in loop")
-                now_switch = path3[on_path_switch]
-                next_switch = path3[on_path_switch + 1]
-                back_switch = path3[on_path_switch - 1]
-                next_port = link_port[(now_switch,next_switch)]
-                back_port = link_port[(now_switch,back_switch)]
-                print("next_port",next_port)
-                print("back_port",back_port)
-                new_dp=get_datapath(self, next_switch)
-                action = parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
-                                                          [parser.OFPActionOutput(next_port)])
-                inst = [action]
-                self.add_flow(datapath=new_dp, match=next_match, inst=inst, table=0)
-
-                action = parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
-                                                          [parser.OFPActionOutput(back_port)])
-                inst = [action]
-                actions = [parser.OFPActionOutput(next_port)]
-                new_dp = get_datapath(self, back_switch)
-                self.add_flow(datapath=new_dp, match=back_match, inst=inst,actions=action, table=0)
-                print ("now switch:%s",now_switch)
-                out = datapath.ofproto_parser.OFPPacketOut(
-                    datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port,
-                    actions=actions)
-                datapath.send_msg(out)
-                print("final")
-
-            else:
-                return
-        else:
-            if out_port != ofproto.OFPP_FLOOD:
-                self.add_flow(datapath, msg.in_port, dst, actions)
-
-            out = datapath.ofproto_parser.OFPPacketOut(
-                datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port,
-                actions=actions)
-            datapath.send_msg(out)
-
-    def dijkstra(graph, src_ip, destination, visited=[], distances={}, predecessors={}):
-	print("######################################graph",graph)
-        if src_ip not in graph:
-            raise TypeError('emmeteur introuvable dans l arbre')
-        if destination not in graph:
-            raise TypeError('destinataire introuvable dans l arbre') 
-        if src_ip == destination:
-            path = []
-            pred = destination
-            while pred != None:
-                path.append(pred)
-                pred = predecessors.get(pred, None)
-            print('Le plus court chemin pour ' + str(path) + " avec un cout de " + str(distances[destination]))
-            global path2
-            path2=path
-        else:
-            if not visited:
-                distances[src_ip] = 0
-            for neighbor in graph[src_ip]:
-                if neighbor not in visited:
-                    new_distance = distances[src_ip] + graph[src_ip][neighbor]
-                    print(new_distance)
-                    if new_distance <= distances.get(neighbor, float('inf')):
-                        distances[neighbor] = new_distance
-                        predecessors[neighbor] = src_ip
-            visited.append(src_ip)
-            # now that all neighbors have been visited: recurse
-            # select the non visited node with lowest distance 'x'
-            # run Dijskstra with src_ip='x'
-            unvisited = {}
-            for k in graph:
-                if k not in visited:
-                    unvisited[k] = distances.get(k, float('inf'))
-            #x = min(unvisited, key=unvisited.get)
-	    x = unvisited
-            dijkstra(graph, x, destination, visited, distances, predecessors)
-
-    def add_flow(self, datapath, priority, match,inst=[],table=0):
-        ofp = datapath.ofproto
-        ofp_parser = datapath.ofproto_parser
-
-        buffer_id = ofp.OFP_NO_BUFFER
-        mod = ofp_parser.OFPFlowMod( 
-            datapath=datapath, table_id=table,
-            command=ofp.OFPFC_ADD, priority=priority, buffer_id=buffer_id,
-            out_port=ofp.OFPP_ANY, out_group=ofp.OFPG_ANY,
-            match=match
-	    #instructions=inst
-        )
-        datapath.send_msg(mod)
-	print('add_flow CONFIRME')
-
-    def dpid_hostLookup(self, lmac):
-        host_locate = {1: {'06:54:44:e3:fa:bf', '82:2e:de:93:16:32'}, 2: {'f6:9d:d0:98:ff:b9', 'c6:a6:ea:8c:16:97'}, 3: {'12:ab:7b:e8:56:d0', '1e:39:2a:27:48:73'}}
-        for dpid, mac in host_locate.iteritems():
-            if lmac in mac:
-                return dpid
-
-
-#----------------------------------------------------------------------------
-# 		FIN	Dev Dijkstra
-#----------------------------------------------------------------------------
 
     @set_ev_cls(dpset.EventDP, dpset.DPSET_EV_DISPATCHER)
     def datapath_handler(self, ev):
@@ -512,6 +351,10 @@ class RestRouterAPI(app_manager.RyuApp):
             RouterController.register_router(ev.dp)
         else:
             RouterController.unregister_router(ev.dp)
+
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
+    def packet_in_handler(self, ev):
+        RouterController.packet_in_handler(ev.msg)
 
     def _stats_reply_handler(self, ev):
         msg = ev.msg
@@ -681,6 +524,7 @@ class RouterController(ControllerBase):
         else:
             raise NotFoundError(switch_id=switch_id)
 
+
 class Router(dict):
     def __init__(self, dp, logger):
         super(Router, self).__init__()
@@ -843,15 +687,43 @@ class VlanRouter(object):
         self.vlan_id = vlan_id
         self.dp = dp
         self.sw_id = {'sw_id': dpid_lib.dpid_to_str(dp.id)}
+	self.sw_idd = {'sw_id',dpid_lib.dpid_to_str(dp.id)}
         self.logger = logger
+
         self.port_data = port_data
         self.address_data = AddressData()
         self.routing_tbl = RoutingTable()
         self.packet_buffer = SuspendPacketList(self.send_icmp_unreach_error)
         self.ofctl = OfCtl.factory(dp, logger)
-        self.link_state = LinkState() 
+ 	self.dijkstra() 
         # Set flow: default route (drop)
         self._set_defaultroute_drop()
+
+#==========================================================================================================
+    def dijkstra(self):
+   	TableDeRoutage = self.routing_tbl
+	print('#######TableDeRoutage',TableDeRoutage)
+	gateways = self.routing_tbl.get_gateways()
+	print('#######TableDegateways',gateways)
+	route = self.routing_tbl.get_data()
+	print('#######TableDeroute',route)
+        for gateway in gateways:
+            address = self.address_data.get_data(ip=gateway)
+            print("Variable address.default_gw sera utilise comme ip source:",address.default_gw)
+            print("Variable gateway sera utilise comme ip de destination :",gateway)
+            src_ip = address.default_gw
+	    print('#######TableDesrc_ip',src_ip)
+	    sw_id= self.sw_id	
+	    sw_id_recu= self.sw_idd
+	    print (sw_id_recu)
+	    sw_id_recu = list(sw_id_recu)
+	    sw_id_recu = sw_id_recu[0]
+	    for numbers in sw_id_recu:
+    		if numbers !='0':
+        	    new_sw_id =  numbers
+       		    print("=======>>> Numero du switch :",new_sw_id)
+
+#==========================================================================================================
 
     def delete(self, waiters):
         # Delete flow.
@@ -1185,7 +1057,7 @@ class VlanRouter(object):
             if msg.reason == ofproto.OFPR_INVALID_TTL:
                 self._packetin_invalid_ttl(msg, header_list)
                 return
-
+	self.dijkstra() 
         # Analyze event type.
         if ARP in header_list:
             self._packetin_arp(msg, header_list)
@@ -1201,29 +1073,11 @@ class VlanRouter(object):
                         return
                 elif TCP in header_list or UDP in header_list:
                     self._packetin_tcp_udp(msg, header_list)
-                    if header_list[UDP].dst_port == 6000: #Test si le paquet entrant est de l'udp sur le port 6000
-                        print("HELLO PACKET RECEIVE")#Simple print pour l'instant
-                        #if(True):#On teste l'existence d'un timer Pour l'instant rien
-                        	#self.thread_udp_timer = hub.spawn(self._packetin_udp_timer(msg))
-			VlanRouter.dijkstra(ev.dp)
                     return
-            
             else:
                 # Packet to internal host or gateway router.
                 self._packetin_to_node(msg, header_list)
                 return
-    def _packetin_udp_timer(self, msg):#Fonction Timer
-    	timer = 60
-    	#self.thread = hub.spawn(self._cyclic_update_routing_tbl)
-    	while(timer>0):#Tant que le timer n'a pas atteint 0
-    		timer=timer-1
-    		time.sleep(1)
-    		print("On enleve 1 au timer, le timer = %s" % timer)
-
-    	#hub.kill(self.thread_udp_timer)#
-        #self.thread_udp_timer.wait()#
-        #self.logger.info('Stop timer',extra=self.sw_id)#
-    	return timer
 
     def _packetin_arp(self, msg, header_list):
         src_addr = self.address_data.get_data(ip=header_list[ARP].src_ip)
@@ -1270,8 +1124,8 @@ class VlanRouter(object):
             if header_list[ARP].opcode == arp.ARP_REQUEST:
                 # ARP request to router port -> send ARP reply
                 src_mac = self.port_data[in_port].mac
-                dst_mac = header_list[ARP].src_mac  
-                arp_target_mac = dst_mac  
+                dst_mac = header_list[ARP].src_mac
+                arp_target_mac = dst_mac
                 output = in_port
                 in_port = self.ofctl.dp.ofproto.OFPP_CONTROLLER
 
@@ -1346,7 +1200,50 @@ class VlanRouter(object):
         dst_ip = header_list[IPV4].dst
         srcip = ip_addr_ntoa(header_list[IPV4].src)
         dstip = ip_addr_ntoa(dst_ip)
+#=================================================================================
+        start = srcip
+        goal = dstip
+	metric = 1
+	graph = {start: {goal: metric}, goal: {start: metric}}
+        shortest_distance = {}
+    	predecessor = {}
+    	unseenNodes = graph
+    	infinity = 99
+    	path = []
+    	for node in unseenNodes:
+    	    shortest_distance[node] = infinity
+    	shortest_distance[start] = 0
+	
+    	while unseenNodes:
+    	    minNode = None
+    	    for node in unseenNodes:
+    	        if minNode is None:
+    	            minNode = node
+    	        elif shortest_distance[node] < shortest_distance[minNode]:
+    	            minNode = node
+	
+    	    for childNode, weight in graph[minNode].items():
+    	        if weight + shortest_distance[minNode] < shortest_distance[childNode]:
+    	            shortest_distance[childNode] = weight + shortest_distance[minNode]
+    	            predecessor[childNode] = minNode
+    	    unseenNodes.pop(minNode)
+	
+    	currentNode = goal
+    	while currentNode != start:
+    	    try:
+    	        path.insert(0, currentNode)
+    	        currentNode = predecessor[currentNode]
+    	    except KeyError:
+    	        print('Path not reachable')
+    	        break
+    	path.insert(0, start)
+    	if shortest_distance[goal] != infinity:
+    	    print('###########################Shortest distance is ' + str(shortest_distance[goal]))
+    	    print('And the path is ' + str(path))
+	premier = (start,goal,shortest_distance[goal])
+	print(str(premier))
 
+#==================================================================================
         address = self.address_data.get_data(ip=dst_ip)
         if address is not None:
             log_msg = 'Receive IP packet from [%s] to an internal host [%s].'
@@ -1367,6 +1264,8 @@ class VlanRouter(object):
             self.send_arp_request(src_ip, dst_ip, in_port=in_port)
             self.logger.info('Send ARP request (flood)', extra=self.sw_id)
 
+	return premier
+	
     def _packetin_invalid_ttl(self, msg, header_list):
         # Send ICMP TTL error.
         srcip = ip_addr_ntoa(header_list[IPV4].src)
@@ -1495,6 +1394,7 @@ class VlanRouter(object):
         self.logger.debug('Receive packet from unknown IP[%s].',
                           ip_addr_ntoa(src_ip), extra=self.sw_id)
         return None
+
 
 class PortData(dict):
     def __init__(self, ports):
@@ -1701,9 +1601,6 @@ class SuspendPacket(object):
         # Start ARP reply wait timer.
         self.wait_thread = hub.spawn(timer, self)
 
-class LinkState(object):
-    def __init__(self):
-        super(LinkState,self).__init__()
 
 class OfCtl(object):
     _OF_VERSIONS = {}
@@ -1843,7 +1740,7 @@ class OfCtl(object):
         # Send packet out
         self.send_packet_out(in_port, self.dp.ofproto.OFPP_IN_PORT,
                              pkt.data, data_str=str(pkt))
-    
+
     def send_packet_out(self, in_port, output, data, data_str=None):
         actions = [self.dp.ofproto_parser.OFPActionOutput(output, 0)]
         self.dp.send_packet_out(buffer_id=UINT32_MAX, in_port=in_port,
@@ -1881,48 +1778,6 @@ class OfCtl(object):
             del waiters_per_dp[stats.xid]
 
         return msgs
-
-    def hello_sender(self, in_port, protocol_list, vlan_id, src_ip=None):
-        csum = 0
-        offset = ethernet.ethernet._MIN_LEN
-
-        if vlan_id != VLANID_NONE:
-            ether_proto = ether.ETH_TYPE_8021Q
-            pcp = 0
-            cfi = 0
-            vlan_ether = ether.ETH_TYPE_IP
-            v = vlan.vlan(pcp, cfi, vlan_id, vlan_ether)
-            offset += vlan.vlan._MIN_LEN
-        else:
-            ether_proto = ether.ETH_TYPE_IP
-
-        eth = protocol_list[ETHERNET]
-        e = ethernet.ethernet(eth.src, eth.dst, ether_proto)
-
-        ip = protocol_list[IPV4]
-        udp_pkt = udp.udp(49000, 6000)#PortSource&Dst
-
-        if src_ip is None:
-            src_ip = ip.dst
-        ip_total_length = ip.header_length * 4 + udp_pkt._MIN_LEN
-        if udp_pkt.data is not None:
-            ip_total_length += udp_pkt.data._MIN_LEN
-            if udp_pkt.data.data is not None:
-                ip_total_length += + len(udp_pkt.data.data)
-        i = ipv4.ipv4(ip.version, ip.header_length, ip.tos,ip_total_length, ip.identification, ip.flags,ip.offset, DEFAULT_TTL, inet.IPPROTO_UDP, csum,src_ip, ip.src)
-
-        pkt = packet.Packet()# On creer le paquet
-        pkt.add_protocol(e)#Ajout de ethernet
-        if vlan_id != VLANID_NONE:#Si VLAN il y a rajout du taggage
-            pkt.add_protocol(v)
-
-        pkt.add_protocol(i)#Ajout du protocol IP
-        pkt.add_protocol(udp_pkt)# Ajout de UDP
-        pkt.serialize()# Serialization
-
-        #Envoi du paquet via le port du router
-        self.send_packet_out(in_port, self.dp.ofproto.OFPP_IN_PORT, pkt.data, data_str=str(pkt))
-
 
 
 @OfCtl.register_of_version(ofproto_v1_0.OFP_VERSION)
@@ -2232,7 +2087,3 @@ def nw_addr_aton(nw_addr, err_msg=None):
         raise ValueError(msg)
     nw_addr = ipv4_apply_mask(default_route, netmask, err_msg)
     return nw_addr, netmask, default_route
-
-
-
-
