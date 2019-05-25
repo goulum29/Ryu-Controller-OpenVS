@@ -163,6 +163,8 @@ PRIORITY_L2_SWITCHING = 4
 PRIORITY_IP_HANDLING = 5
 
 PRIORITY_TYPE_ROUTE = 'priority_route'
+sw_identifiant = ()
+ma_gw = {}
 
 
 
@@ -698,9 +700,12 @@ class VlanRouter(object):
  	self.dijkstra() 
         # Set flow: default route (drop)
         self._set_defaultroute_drop()
+	sw_identifiant = ()
+	ma_gw = {}
 
 #==========================================================================================================
     def dijkstra(self):
+
    	TableDeRoutage = self.routing_tbl
 	print('#######TableDeRoutage',TableDeRoutage)
 	gateways = self.routing_tbl.get_gateways()
@@ -722,16 +727,16 @@ class VlanRouter(object):
     		if numbers !='0':
         	    new_sw_id =  numbers
        		    print("=======>>> Numero du switch :",new_sw_id) #Donnees entrantes
-	    sw_id = ()
-	    gw = {}
-	    print ('Premiere:',gw)
+	    #sw_identifiant = ()
+	    #ma_gw = {}
+	    print ('Premiere:',ma_gw)
 
- 	    len_a = len(sw_id) #Pour avoir la taille d'une liste
+ 	    len_a = len(sw_identifiant) #Pour avoir la taille d'une liste
 	    print('taille : ',len_a)
 	    if len_a == 0:
-		    gw[new_sw_id]=src_ip
+		    ma_gw[new_sw_id]=src_ip
 
-	    print(gw)
+	    print(ma_gw)
 
 #==========================================================================================================
 
