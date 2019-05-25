@@ -1,5 +1,5 @@
 #Lancement mininet avec topo de test
-sudo mn --custom ProjetLocal/Topology_test.py --topo mytopo --mac --controller remote -x
+sudo mn --custom Topology_test.py --topo mytopo --mac --controller remote -x
 
 #On dit aux switch d'utliser le protocol OpenFlow
 ovs-vsctl set Bridge s1 protocols=OpenFlow13
@@ -15,8 +15,10 @@ h1 ip route add 0.0.0.0/0 via 192.168.10.254
 h2 ip route add 0.0.0.0/0 via 192.168.20.254
 h3 ip route add 0.0.0.0/0 via 192.168.30.254
 
+#Lire les fichiers hello_event.py et timeout_event.py et les copier ou c'est indiquer dans le fichier
 #Lancement du ryu Manager avec l'appli
-ryu-manager nomapplication.py
+ryu-manager --verbose dynamic_rest_router.py ryu.app.hello_event ryu.app.timeout_event
+
 
 
 #Ajout des addresses ip sur les interface des routeurs
@@ -29,7 +31,6 @@ curl -X POST -d '{"address":"192.168.12.1/24"}' http://localhost:8080/router/000
 curl -X POST -d '{"address":"192.168.12.2/24"}' http://localhost:8080/router/0000000000000002
 curl -X POST -d '{"address":"192.168.23.1/24"}' http://localhost:8080/router/0000000000000002
 curl -X POST -d '{"address":"192.168.23.2/24"}' http://localhost:8080/router/0000000000000003
-#Ajout des routes SI nécéssaire
 curl -X POST -d '{"destination": "192.168.30.0/24", "gateway": "192.168.12.2"}' http://localhost:8080/router/0000000000000001
 curl -X POST -d '{"destination": "192.168.20.0/24", "gateway": "192.168.12.2"}' http://localhost:8080/router/0000000000000001
 curl -X POST -d '{"destination": "192.168.10.0/24", "gateway": "192.168.12.1"}' http://localhost:8080/router/0000000000000002

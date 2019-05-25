@@ -613,6 +613,10 @@ class Router(dict):
     		vlan_router.send_udp_hello_all_gw()
     		#print("Boucle _LinkState, tour numero : ", vlan_router)
 
+    def _timeout(self):
+    	for vlan_router in self.values():
+    		vlan_router.timeout_actions()
+
     def _cyclic_update_routing_tbl(self):
         while True:
             # send ARP to all gateways.
@@ -1137,6 +1141,15 @@ class VlanRouter(object):
         compteur = 5
         self.link_dico[key_dico] = compteur
         print(self.link_dico)
+
+    def timeout_actions(self):
+    	print("Dans fonction timeout_actions")
+    	print(self.link_dico)
+    	for valeur in self.link_dico.values():
+    		valeur = valeur-1
+    		print("Dans boucle for time_out_action : ",valeur)
+    		if valeur == 0 or valeur <0:
+    			self.logger.info('Lien down sur le routeur',extra=self.sw_id)
 
     def _packetin_to_node(self, msg, header_list):
         if len(self.packet_buffer) >= MAX_SUSPENDPACKETS:
