@@ -1276,7 +1276,7 @@ class VlanRouter(object):
 
     def _update_routing_tbl(self, msg, header_list):
         # Set flow: routing to gateway.
-        print("Dans _update_routing_tbl")
+        #print("Dans _update_routing_tbl")
         out_port = self.ofctl.get_packetin_inport(msg)
         src_mac = header_list[ARP].src_mac
         dst_mac = self.port_data[out_port].mac
