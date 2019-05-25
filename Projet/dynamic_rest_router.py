@@ -35,7 +35,8 @@ from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto import ofproto_v1_2
 from ryu.ofproto import ofproto_v1_3
 from threading import Thread
-from ryu.app import hello_event 
+from ryu.app import hello_event
+from ryu.app import timeout_event 
 # =============================
 #          REST API
 # =============================
@@ -296,6 +297,12 @@ class RestRouterAPI(app_manager.RyuApp):
             #print()
             RouterController.link_state(ev.msg)
 
+    @set_ev_cls(timeout_event.SendTimeout)
+    def _timeout_event_handler(self,ev):
+    	if ev.msg == 'SendTimeout':
+    		print("Timeout recu")
+    		RouterController.timeout_handler(ev.msg)
+
 # REST command template
 def rest_command(func):
     def _rest_command(*args, **kwargs):
@@ -379,6 +386,14 @@ class RouterController(ControllerBase):
         	router = cls._ROUTER_LIST[dp_id]
         	router._linkstate()
         	#print("Tour numero ",router_id)
+
+    @classmethod
+    def timeout_handler(cls,msg):
+    	nb_router = len(cls._ROUTER_LIST)
+    	for router_id in range(len(cls._ROUTER_LIST)):
+        	dp_id = router_id + 1
+        	router = cls._ROUTER_LIST[dp_id]
+        	router._timeout()
 
     # GET /router/{switch_id}
     @rest_command
@@ -1120,7 +1135,7 @@ class VlanRouter(object):
         self.logger.info('Paquet hello recu de [%s] sur le port du routeur [%s] etat du lien valide',srcip, dstip, extra=self.sw_id)
         key_dico = srcip + ":" + dstip#Sorte de cle primaire, une valeur possible
         compteur = 5
-        self.link_dico[key_dico]=compteur
+        self.link_dico[key_dico] = compteur
         print(self.link_dico)
 
     def _packetin_to_node(self, msg, header_list):
