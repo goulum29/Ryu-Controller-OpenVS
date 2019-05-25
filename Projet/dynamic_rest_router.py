@@ -290,10 +290,10 @@ class RestRouterAPI(app_manager.RyuApp):
     def _test_event_handler(self,ev):
         if ev.msg == 'sendudp':
             #self.logger.info('*** Received event: ev.msg = %s', ev.msg)
-            print("Envoi UDP",ev.msg)
-            print()
-            print()
-            print()
+            #print("Envoi UDP",ev.msg)
+            #print()
+            #print()
+            #print()
             RouterController.link_state(ev.msg)
 
 # REST command template
@@ -370,15 +370,15 @@ class RouterController(ControllerBase):
     @classmethod
     def link_state(cls,msg):
     	nb_router = len(cls._ROUTER_LIST)
-    	print("Le nombre de router est de : ", nb_router)
-    	print("NB ROUTEUR : ",cls._ROUTER_LIST)#Liste router   	
-    	print(range(len(cls._ROUTER_LIST)+1))
+    	#print("Le nombre de router est de : ", nb_router)
+    	#print("NB ROUTEUR : ",cls._ROUTER_LIST)#Liste router   	
+    	#print(range(len(cls._ROUTER_LIST)+1))
     	for router_id in range(len(cls._ROUTER_LIST)):
         	dp_id = router_id + 1
-        	print("Pour le router ID = ",dp_id)
+        	#print("Pour le router ID = ",dp_id)
         	router = cls._ROUTER_LIST[dp_id]
         	router._linkstate()
-        	print("Tour numero ",router_id)
+        	#print("Tour numero ",router_id)
 
     # GET /router/{switch_id}
     @rest_command
@@ -592,11 +592,11 @@ class Router(dict):
             #else:
                 #self.logger.debug('Drop unknown vlan packet. [vlan_id=%d]',vlan_id, extra=self.sw_id)#Annulation des fonctions qui drop les paquets
     def _linkstate(self):
-    	print("DataPath : " , self.dp)
-    	print("SwitchID : ", self.sw_id)
+    	#print("DataPath : " ,self.dp)
+    	#print("SwitchID : ",self.sw_id)
     	for vlan_router in self.values():
     		vlan_router.send_udp_hello_all_gw()
-    		print("Boucle _LinkState, tour numero : ", vlan_router)
+    		#print("Boucle _LinkState, tour numero : ", vlan_router)
 
     def _cyclic_update_routing_tbl(self):
         while True:
@@ -625,7 +625,7 @@ class VlanRouter(object):
         #self.link_state = LinkState(self.ofctl,self.routing_tbl,self.address_data,self.packet_buffer,self.vlan_id,self.sw_id)#a reactiver
         #print("Avant default route drop Dans VlanRouter")
         self.ipaddr_gw_opp = self.routing_tbl.get_gateways
-        print(self.ipaddr_gw_opp)
+        #print(self.ipaddr_gw_opp)
         # Set flow: default route (drop)
         self._set_defaultroute_drop()
         #print("Avant lancement de la classe LinkState")
@@ -1118,6 +1118,10 @@ class VlanRouter(object):
         srcip = ip_addr_ntoa(header_list[IPV4].src)
         dstip = ip_addr_ntoa(header_list[IPV4].dst)
         self.logger.info('Paquet hello recu de [%s] sur le port du routeur [%s] etat du lien valide',srcip, dstip, extra=self.sw_id)
+        key_dico = srcip + ":" + dstip#Sorte de cle primaire, une valeur possible
+        compteur = 5
+        self.link_dico[key_dico]=compteur
+        print(self.link_dico)
 
     def _packetin_to_node(self, msg, header_list):
         if len(self.packet_buffer) >= MAX_SUSPENDPACKETS:
@@ -1173,22 +1177,22 @@ class VlanRouter(object):
         for gateway in gateways:
             address = self.address_data.get_data(ip=gateway)
             self.send_arp_request(address.default_gw, gateway)
-            print("Variable address.default_gw dans send_arp_all :",address.default_gw)
-            print("Variable :",gateway)
+            #print("Variable address.default_gw dans send_arp_all :",address.default_gw)
+            #print("Variable :",gateway)
 
     def send_udp_hello_all_gw(self):
-        print("DANS send_udp_hello_all_gw")
+        #print("DANS send_udp_hello_all_gw")
         gateways = self.routing_tbl.get_gateways()
         for gateway in gateways:
             address = self.address_data.get_data(ip=gateway)
-            print("Variable address.default_gw sera utilise comme ip source:",address.default_gw)
-            print("Variable gateway sera utilise comme ip de destination :",gateway)
+            #print("Variable address.default_gw sera utilise comme ip source:",address.default_gw)
+            #print("Variable gateway sera utilise comme ip de destination :",gateway)
             src_ip = address.default_gw
             dst_ip = gateway
             self.send_hello_request_to_gw(src_ip,dst_ip,in_port=None)
 
     def send_hello_request_to_gw(self, src_ip, dst_ip,in_port=None):
-    	print("AFFICHAGE VARIABLE in_port avant for : " ,in_port)
+    	#print("AFFICHAGE VARIABLE in_port avant for : " ,in_port)
         for send_port in self.port_data.values():
             if in_port is None or in_port != send_port.port_no:
                 src_mac = mac_lib.BROADCAST_STR
@@ -1207,14 +1211,14 @@ class VlanRouter(object):
                 arp_target_mac = mac_lib.DONTCARE_STR
                 inport = self.ofctl.dp.ofproto.OFPP_CONTROLLER
                 output = send_port.port_no
-                print("ARP : Dans fonction send_arp_request")
-                print("ARP : Adresse mac source : ",src_mac)
-                print("ARP : Adresse mac de destination : ",dst_mac)
-                print("ARP : Adresse mac cible de la requete arp : ",arp_target_mac)
-                print("ARP : INPORT : ",inport)
-                print("ARP : OUTPUT : ",output)
-                print("ARP : Adresse IP SOURCE : ",src_ip)
-                print("ARP : Adresse IP DESTINATION : ",dst_ip)
+                #print("ARP : Dans fonction send_arp_request")
+                #print("ARP : Adresse mac source : ",src_mac)
+                #print("ARP : Adresse mac de destination : ",dst_mac)
+                #print("ARP : Adresse mac cible de la requete arp : ",arp_target_mac)
+                #print("ARP : INPORT : ",inport)
+                #print("ARP : OUTPUT : ",output)
+                #print("ARP : Adresse IP SOURCE : ",src_ip)
+                #print("ARP : Adresse IP DESTINATION : ",dst_ip)
 
                 self.ofctl.send_arp(arp.ARP_REQUEST, self.vlan_id,
                                     src_mac, dst_mac, src_ip, dst_ip,
@@ -1523,7 +1527,7 @@ class SuspendPacket(object):
 class LinkState(object):
     def __init__(self,ofctl_fonction,routing_fonction,addr_data_fonction,packet_buffer_fonction):
         super(LinkState,self).__init__()
-        print("Lancement class LinkState")
+        #print("Lancement class LinkState")
         self.ofctlbis = ofctl_fonction
         self.routing_tblbis = routing_fonction
         self.address_databis = addr_data_fonction
@@ -1670,13 +1674,13 @@ class OfCtl(object):
         pkt.add_protocol(i)
         pkt.add_protocol(ic)
         pkt.serialize()
-        print("ICMP : Serialise ICMP")
-        print("ICMP : IP DESTINATION : ",src_ip)
-        print("ICMP : IP SOURCE : ", ip.src)
-        print("ICMP : ADRESSE MAC SOURCE : ",eth.src)
-        print("ICMP : ADRESSE MAC DESTINATION : ",eth.dst )
-        print("ICMP : PORT SORTIE : ",in_port)
-        print("")
+        #print("ICMP : Serialise ICMP")
+        #print("ICMP : IP DESTINATION : ",src_ip)
+        #print("ICMP : IP SOURCE : ", ip.src)
+        #print("ICMP : ADRESSE MAC SOURCE : ",eth.src)
+        #print("ICMP : ADRESSE MAC DESTINATION : ",eth.dst )
+        #print("ICMP : PORT SORTIE : ",in_port)
+        #print("")
         # Send packet out
         self.send_packet_out(in_port, self.dp.ofproto.OFPP_IN_PORT,
                              pkt.data, data_str=str(pkt))
@@ -1703,24 +1707,24 @@ class OfCtl(object):
         pkt.add_protocol(i)
         pkt.add_protocol(u)
         pkt.serialize()
-        print("UDP : Paquet Serialize")
-        print("UDP : VLAN ID : " ,vlan_id)
-        print("UDP : Address MAC source : ", src_mac)
-        print("UDP : Address MAC destination : ", dst_mac)
-        print("UDP : Adress IP source : ", src_ip)
-        print("UDP : Adress IP destination : ",dst_ip)
-        print("UDP : Port Destination : ", dst_p)
-        print("UDP : Port Source : ", src_p)
-        print("UDP : Interface IN : ", in_port)
-        print("UDP : Interface de sortie : ", output)
-        print(repr(pkt))#affichage du paquet
+        #print("UDP : Paquet Serialize")
+        #print("UDP : VLAN ID : " ,vlan_id)
+        #print("UDP : Address MAC source : ", src_mac)
+        #print("UDP : Address MAC destination : ", dst_mac)
+        #print("UDP : Adress IP source : ", src_ip)
+        #print("UDP : Adress IP destination : ",dst_ip)
+        #print("UDP : Port Destination : ", dst_p)
+        #print("UDP : Port Source : ", src_p)
+        #print("UDP : Interface IN : ", in_port)
+        #print("UDP : Interface de sortie : ", output)
+        #print(repr(pkt))#affichage du paquet
 
         # Send packet out
         self.send_packet_out(4294967294, output, pkt.data, data_str=str(pkt))    
     def send_packet_out(self, in_port, output, data, data_str=None):
         actions = [self.dp.ofproto_parser.OFPActionOutput(output, 0)]
         self.dp.send_packet_out(buffer_id=UINT32_MAX, in_port=in_port,actions=actions, data=data)
-        print("Apres envoi du paquet", actions)
+        #print("Apres envoi du paquet", actions)
         # TODO: Packet library convert to string
         if data_str is None:
             data_str = str(packet.Packet(data))
