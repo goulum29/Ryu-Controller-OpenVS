@@ -1,18 +1,3 @@
-# Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-# implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import time
 import logging
 import numbers
@@ -613,7 +598,6 @@ class Router(dict):
     		vlan_router.send_udp_hello_all_gw()
     		print("Boucle _LinkState, tour numero : ", vlan_router)
 
-
     def _cyclic_update_routing_tbl(self):
         while True:
             # send ARP to all gateways.
@@ -637,6 +621,7 @@ class VlanRouter(object):
         self.routing_tbl = RoutingTable()
         self.packet_buffer = SuspendPacketList(self.send_icmp_unreach_error)
         self.ofctl = OfCtl.factory(dp, logger)
+        self.link_dico = dict()
         #self.link_state = LinkState(self.ofctl,self.routing_tbl,self.address_data,self.packet_buffer,self.vlan_id,self.sw_id)#a reactiver
         #print("Avant default route drop Dans VlanRouter")
         self.ipaddr_gw_opp = self.routing_tbl.get_gateways
@@ -992,12 +977,14 @@ class VlanRouter(object):
                     if header_list[ICMP].type == icmp.ICMP_ECHO_REQUEST:
                         self._packetin_icmp_req(msg, header_list)
                         return
+                elif header_list[UDP].dst_port == 6000:#Test si le paquet entrant est de l'udp sur le port 6000
+                	self._packetin_hello_udp(msg, header_list)
+                	return
                 elif TCP in header_list or UDP in header_list:
                     self._packetin_tcp_udp(msg, header_list)
                     if header_list[UDP].dst_port == 6000: #Test si le paquet entrant est de l'udp sur le port 6000
-                        print("HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE ")#Simple print pour l'instant
-                        #if(True):#On teste l'existence d'un timer Pour l'instant rien
-                        	#self.thread_udp_timer = hub.spawn(self._packetin_udp_timer(msg))
+                        #print("HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE ")#Simple print pour l'instant
+                        self._packetin_hello_udp(msg, header_list)
                     return
             
             else:
@@ -1125,6 +1112,12 @@ class VlanRouter(object):
                          srcip, dstip, extra=self.sw_id)
         self.logger.info('Send ICMP destination unreachable to [%s].', srcip,
                          extra=self.sw_id)
+
+    def _packetin_hello_udp(self, msg, header_list):
+    	#Affiche sur le logger que un paquet hello a ete recu
+        srcip = ip_addr_ntoa(header_list[IPV4].src)
+        dstip = ip_addr_ntoa(header_list[IPV4].dst)
+        self.logger.info('Paquet hello recu de [%s] sur le port du routeur [%s] etat du lien valide',srcip, dstip, extra=self.sw_id)
 
     def _packetin_to_node(self, msg, header_list):
         if len(self.packet_buffer) >= MAX_SUSPENDPACKETS:
