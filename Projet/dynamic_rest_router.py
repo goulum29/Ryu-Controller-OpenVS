@@ -709,8 +709,8 @@ class VlanRouter(object):
 	print('#######TableDeroute',route)
         for gateway in gateways:
             address = self.address_data.get_data(ip=gateway)
-            print("Variable address.default_gw sera utilise comme ip source:",address.default_gw)
-            print("Variable gateway sera utilise comme ip de destination :",gateway)
+            #print("Variable address.default_gw sera utilise comme ip source:",address.default_gw)
+            #print("Variable gateway sera utilise comme ip de destination :",gateway)
             src_ip = address.default_gw
 	    print('#######TableDesrc_ip',src_ip)
 	    sw_id= self.sw_id	
@@ -721,7 +721,17 @@ class VlanRouter(object):
 	    for numbers in sw_id_recu:
     		if numbers !='0':
         	    new_sw_id =  numbers
-       		    print("=======>>> Numero du switch :",new_sw_id)
+       		    print("=======>>> Numero du switch :",new_sw_id) #Donnees entrantes
+	    sw_id = ()
+	    gw = {}
+	    print ('Premiere:',gw)
+
+ 	    len_a = len(sw_id) #Pour avoir la taille d'une liste
+	    print('taille : ',len_a)
+	    if len_a == 0:
+		    gw[new_sw_id]=src_ip
+
+	    print(gw)
 
 #==========================================================================================================
 
