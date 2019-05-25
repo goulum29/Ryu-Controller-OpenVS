@@ -1140,16 +1140,20 @@ class VlanRouter(object):
         key_dico = srcip + ":" + dstip#Sorte de cle primaire, une valeur possible
         compteur = 5
         self.link_dico[key_dico] = compteur
-        print(self.link_dico)
+        #print("Paquet hello recu ajout de 5 pour le couple adresse : ",self.link_dico[key_dico]," pour la cle : ", key_dico)
 
     def timeout_actions(self):
-    	print("Dans fonction timeout_actions")
-    	print(self.link_dico)
-    	for valeur in self.link_dico.values():
-    		valeur = valeur-1
-    		print("Dans boucle for time_out_action : ",valeur)
+    	#print("Dans fonction timeout_actions")
+    	#print(self.link_dico)
+    	#Decremente le compteur si le lien est down on l'indique via le logger
+    	for key in self.link_dico.keys():
+    		valeur = self.link_dico[key] - 1
+    		self.link_dico[key] = valeur
+    		#print("Dans boucle for time_out_action : ",valeur)
     		if valeur == 0 or valeur <0:
-    			self.logger.info('Lien down sur le routeur',extra=self.sw_id)
+    			self.logger.info('Lien [%s] down sur le routeur',key ,extra=self.sw_id)
+
+    		#print("Affiche de la variable self link dico a la fin du timeout actions : ", self.link_dico)
 
     def _packetin_to_node(self, msg, header_list):
         if len(self.packet_buffer) >= MAX_SUSPENDPACKETS:
