@@ -49,7 +49,7 @@ from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto import ofproto_v1_2
 from ryu.ofproto import ofproto_v1_3
-
+from netaddr import IPNetwork
 
 # =============================
 #          REST API
@@ -163,7 +163,7 @@ PRIORITY_L2_SWITCHING = 4
 PRIORITY_IP_HANDLING = 5
 
 PRIORITY_TYPE_ROUTE = 'priority_route'
-sw_identifiant = ()
+
 ma_gw = {}
 
 
@@ -727,16 +727,38 @@ class VlanRouter(object):
     		if numbers !='0':
         	    new_sw_id =  numbers
        		    print("=======>>> Numero du switch :",new_sw_id) #Donnees entrantes
-	    #sw_identifiant = ()
 	    #ma_gw = {}
-	    print ('Premiere:',ma_gw)
+	    #print ('Premiere:',ma_gw)
+	    netmask = '24'
+	    tout = src_ip+"/" +netmask
+	    print(tout)
 
- 	    len_a = len(sw_identifiant) #Pour avoir la taille d'une liste
-	    print('taille : ',len_a)
+	    ip = IPNetwork(tout)
+	    src_ip = ip.network
+	    print("=======>>@reseau de l intreface",src_ip)
+
+ 	    len_a = len(ma_gw) #Pour avoir la taille d'une liste
 	    if len_a == 0:
-		    ma_gw[new_sw_id]=src_ip
+		    ma_gw[new_sw_id]=[src_ip]	#Pour le premier ajout
+	    else:
+    		for cle in ma_gw:
+        	    indic1 = bool
+        	    if cle == new_sw_id:
+            		for valeur in ma_gw.values():
+			    valeur = valeur [0]
+                    	    if valeur != src_ip:
+                    		ma_gw[new_sw_id].append(src_ip)
 
+        	    else:
+           		indic1 = True
+   		if indic1 == True:
+        	    ma_gw[new_sw_id] = [src_ip]
+        	    indic1 = False
+	    print('============= TOPO =====================')
+	    print('-----------------------------------------')
 	    print(ma_gw)
+	    print('------------------------------------------')
+	    print('=========== Fin TOPO =====================')
 
 #==========================================================================================================
 
@@ -1257,6 +1279,7 @@ class VlanRouter(object):
     	    print('And the path is ' + str(path))
 	premier = (start,goal,shortest_distance[goal])
 	print(str(premier))
+  
 
 #==================================================================================
         address = self.address_data.get_data(ip=dst_ip)
