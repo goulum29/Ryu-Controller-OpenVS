@@ -394,6 +394,7 @@ class RouterController(ControllerBase):
         	dp_id = router_id + 1
         	router = cls._ROUTER_LIST[dp_id]
         	router._timeout()
+            #router._addr_data_retour()
 
     # GET /router/{switch_id}
     @rest_command
@@ -617,6 +618,10 @@ class Router(dict):
     	for vlan_router in self.values():
     		vlan_router.timeout_actions()
 
+    def _addr_data_retour(self):
+        for vlan_routeur in self.values():
+            print(vlan_routeur.address_data())
+
     def _cyclic_update_routing_tbl(self):
         while True:
             # send ARP to all gateways.
@@ -648,7 +653,10 @@ class VlanRouter(object):
         # Set flow: default route (drop)
         self._set_defaultroute_drop()
         #print("Avant lancement de la classe LinkState")
-        
+    def address_data_retour(self):
+
+        addr_data = self.address_data
+        return addr_data        
 
     def delete(self, waiters):
         # Delete flow.
@@ -1146,6 +1154,7 @@ class VlanRouter(object):
     	#print("Dans fonction timeout_actions")
     	#print(self.link_dico)
     	#Decremente le compteur si le lien est down on l'indique via le logger
+        print("#####Adresse data : ",self.address_data)
     	for key in self.link_dico.keys():
     		valeur = self.link_dico[key] - 1
     		self.link_dico[key] = valeur
