@@ -49,7 +49,7 @@ from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto import ofproto_v1_2
 from ryu.ofproto import ofproto_v1_3
-from netaddr import IPNetwork
+from netaddr import *
 
 # =============================
 #          REST API
@@ -727,38 +727,42 @@ class VlanRouter(object):
     		if numbers !='0':
         	    new_sw_id =  numbers
        		    print("=======>>> Numero du switch :",new_sw_id) #Donnees entrantes
-	    #ma_gw = {}
-	    #print ('Premiere:',ma_gw)
-	    netmask = '24'
+ 
+	    netmask = '24'		#A changer par le reel(variable)
 	    tout = src_ip+"/" +netmask
-	    print(tout)
-
-	    ip = IPNetwork(tout)
+	    ip = IPNetwork(tout)	#Obtient l addresse reseau
 	    src_ip = ip.network
-	    print("=======>>@reseau de l intreface",src_ip)
-
- 	    len_a = len(ma_gw) #Pour avoir la taille d'une liste
+	    src_ipp = str(src_ip)
+	    src_ip_val = []
+	    print("=======>>@reseau de l intreface",src_ipp)
+	    for number in src_ipp:
+    		if number in "0123456789":
+        	    num = number
+        	    src_ip_val.append(int(num))
+	    print("#########",src_ip_val)
+  	    len_a = len(ma_gw) #Pour avoir la taille d'une liste
 	    if len_a == 0:
-		    ma_gw[new_sw_id]=[src_ip]	#Pour le premier ajout
+		    ma_gw[new_sw_id]=[src_ipp]	#Pour le premier ajout
 	    else:
     		for cle in ma_gw:
         	    indic1 = bool
         	    if cle == new_sw_id:
             		for valeur in ma_gw.values():
 			    valeur = valeur [0]
-                    	    if valeur != src_ip:
-                    		ma_gw[new_sw_id].append(src_ip)
+                    	    if valeur != src_ip_val:
+                    		ma_gw[new_sw_id].append(src_ipp)
 
         	    else:
            		indic1 = True
    		if indic1 == True:
-        	    ma_gw[new_sw_id] = [src_ip]
+        	    ma_gw[new_sw_id] = [src_ipp]
         	    indic1 = False
 	    print('============= TOPO =====================')
 	    print('-----------------------------------------')
 	    print(ma_gw)
 	    print('------------------------------------------')
 	    print('=========== Fin TOPO =====================')
+        	    
 
 #==========================================================================================================
 
