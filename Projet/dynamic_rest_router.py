@@ -36,7 +36,8 @@ from ryu.ofproto import ofproto_v1_2
 from ryu.ofproto import ofproto_v1_3
 from threading import Thread
 from ryu.app import hello_event
-from ryu.app import timeout_event 
+from ryu.app import timeout_event
+from netaddr import * 
 # =============================
 #          REST API
 # =============================
@@ -652,6 +653,8 @@ class VlanRouter(object):
         #print(self.ipaddr_gw_opp)
         # Set flow: default route (drop)
         self._set_defaultroute_drop()
+        self.sw_idd = {'sw_id',dpid_lib.dpid_to_str(dp.id)}#Variable code yassine
+        self.ma_gw = {}
         #print("Avant lancement de la classe LinkState")
     def address_data_retour(self):
 
@@ -1161,6 +1164,7 @@ class VlanRouter(object):
     		#print("Dans boucle for time_out_action : ",valeur)
     		if valeur == 0 or valeur <0:
     			self.logger.info('Lien [%s] down sur le routeur',key ,extra=self.sw_id)
+    			self.dijkstra()
 
     		#print("Affiche de la variable self link dico a la fin du timeout actions : ", self.link_dico)
 
@@ -1359,7 +1363,98 @@ class VlanRouter(object):
         self.logger.debug('Receive packet from unknown IP[%s].',
                           ip_addr_ntoa(src_ip), extra=self.sw_id)
         return None
+    
+    def dijkstra(self):
 
+   	TableDeRoutage = self.routing_tbl
+	print('#######TableDeRoutage',TableDeRoutage)
+	gateways = self.routing_tbl.get_gateways()
+	print('#######TableDegateways',gateways)
+	route = self.routing_tbl.get_data()
+	print('#######TableDeroute',route)
+        for gateway in gateways:
+            address = self.address_data.get_data(ip=gateway)
+            #print("Variable address.default_gw sera utilise comme ip source:",address.default_gw)
+            #print("Variable gateway sera utilise comme ip de destination :",gateway)
+            src_ip = address.default_gw
+	    print('#######TableDesrc_ip',src_ip)
+	    sw_id= self.sw_id	
+	    sw_id_recu= self.sw_idd
+	    print (sw_id_recu)
+	    sw_id_recu = list(sw_id_recu)
+	    sw_id_recu = sw_id_recu[0]
+	    for numbers in sw_id_recu:
+    		if numbers !='0':
+        	    new_sw_id =  numbers
+       		    print("=======>>> Numero du switch :",new_sw_id) #Donnees entrantes
+ 
+	    netmask = '24'		#A changer par le reel(variable)
+	    tout = src_ip+"/" +netmask
+	    ip = IPNetwork(tout)	#Obtient l addresse reseau
+	    src_ip = ip.network
+	    src_ipp = str(src_ip)
+	    src_ip_val = []
+	    print("=======>>@reseau de l intreface",src_ipp)
+	    for number in src_ipp:
+    		if number in "0123456789":
+        	    num = number
+        	    src_ip_val.append(int(num))
+	    print("#########",src_ip_val)
+	    taille_ipaddr = []
+	    all_cle = []
+	    indic = bool
+	    indic2 = bool
+	    compteur = 0
+	    compteur1 = 0
+	    compteur2 = 10
+	    len_addresse = 0
+  	    len_a = len(self.ma_gw) #Pour avoir la taille d'une liste
+	    if len_a == 0:
+    		self.ma_gw[new_sw_id]=[src_ipp]	#Pour le premier ajout
+	    else:
+    		for cle in self.ma_gw:
+		    all_cle.append(cle)
+		print('Toutes les cles',all_cle)
+		len_c = len(all_cle)
+		aa = 0
+		while aa != len_c:
+		    cl = all_cle[aa]
+		    aa = aa +1
+		    if cl != new_sw_id :
+			compteur = compteur +1
+		if compteur == len_c :  
+		    self.ma_gw[new_sw_id] = [src_ipp]
+	   	if cle == new_sw_id : 
+		    compteur2 = 0
+		    az = 0	
+		    addresse_acomparer= self.ma_gw.get(cle)
+		    print('YYYYYYYYYYY',addresse_acomparer)
+		    len_addresse = len(addresse_acomparer)
+		    print('le nombre de YYYY',len_addresse)
+		    valeur_val = [] 
+		    while az != len_addresse:
+        	     	valeur_bien = []
+    		 	res = addresse_acomparer[az]
+		 	az = az +1 
+		 	print('########YYYY',res)
+ 	    	   	for number in res:
+        	    	    if number in "0123456789":
+			    	num = number
+			    	valeur_bien.append(int(num))
+        	    	print('=======valeurNouvelle',valeur_bien)			
+          	    	if valeur_bien != src_ip_val:
+			    print('=============EGALE')
+			    compteur2 = compteur2 +1
+			    print('nombre d egale', compteur2)	
+	   	
+	    if compteur2 == len_addresse:
+		print('#######""Nouvelleeeee')
+		self.ma_gw[new_sw_id].append(src_ipp)	
+	    print('============= TOPO =====================')
+	    print('-----------------------------------------')
+	    print(self.ma_gw)
+	    print('------------------------------------------')
+	    print('=========== Fin TOPO =====================')        
 class PortData(dict):
     def __init__(self, ports):
         super(PortData, self).__init__()
