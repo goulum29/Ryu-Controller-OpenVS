@@ -395,6 +395,7 @@ class RouterController(ControllerBase):
         	dp_id = router_id + 1
         	router = cls._ROUTER_LIST[dp_id]
         	router._timeout()
+        	print(router._addr_data_retour())
             #router._addr_data_retour()
 
     # GET /router/{switch_id}
@@ -462,6 +463,14 @@ class RouterController(ControllerBase):
         else:
             raise NotFoundError(switch_id=switch_id)
 
+    def _recup_addr_sw(self):
+    	nb_router = len(cls._ROUTER_LIST)
+    	for router_id in range(len(cls._ROUTER_LIST)):
+        	dp_id = router_id + 1
+        	router = cls._ROUTER_LIST[dp_id]
+        	
+
+
 class Router(dict):
     def __init__(self, dp, logger):
         super(Router, self).__init__()
@@ -469,7 +478,7 @@ class Router(dict):
         self.dpid_str = dpid_lib.dpid_to_str(dp.id)
         self.sw_id = {'sw_id': self.dpid_str}
         self.logger = logger
-
+        self.addr_dico = dict()
         self.port_data = PortData(dp.ports)
 
         ofctl = OfCtl.factory(dp, logger)
@@ -618,12 +627,17 @@ class Router(dict):
     def _timeout(self):
     	for vlan_router in self.values():
     		vlan_router.timeout_actions()
-    		self._addr_data_retour()
+    		#self._addr_data_retour()
 
-    def _addr_data_retour(self):
-        for vlan_router in self.values():
+
+    def _addr_data_retour(self):#Retourne un dic avec association interface et id switch
+    	liste_addr = []
+        for vlan_router in self.values():#on balance les adresses dans une liste
             data_addr = vlan_router.address_data_retour()
-            print(data_addr)
+            #print(data_addr)
+            liste_addr.append(self.sw_id)#ajout id switch
+            liste_addr.append(data_addr)#ajout ip 
+        return liste_addr
 
     def _cyclic_update_routing_tbl(self):
         while True:
@@ -658,10 +672,11 @@ class VlanRouter(object):
         self.sw_idd = {'sw_id',dpid_lib.dpid_to_str(dp.id)}#Variable code yassine
         self.ma_gw = {}
         #print("Avant lancement de la classe LinkState")
-    def address_data_retour(self):
+    def address_data_retour(self):#On returne les infos des interfaces
+        #print(self.address_data.get_data())
+        #print(self._get_address_data())
 
-        addr_data = self.address_data
-        return addr_data        
+        return self._get_address_data()       
 
     def delete(self, waiters):
         # Delete flow.
@@ -1159,7 +1174,7 @@ class VlanRouter(object):
     	#print("Dans fonction timeout_actions")
     	#print(self.link_dico)
     	#Decremente le compteur si le lien est down on l'indique via le logger
-        print("#####Adresse data : ",self.address_data)
+        #print("#####Adresse data : ",self.address_data)
     	for key in self.link_dico.keys():
     		valeur = self.link_dico[key] - 1
     		self.link_dico[key] = valeur
