@@ -740,23 +740,56 @@ class VlanRouter(object):
         	    num = number
         	    src_ip_val.append(int(num))
 	    print("#########",src_ip_val)
+	    taille_ipaddr = []
+	    all_cle = []
+	    indic = bool
+	    indic2 = bool
+	    compteur = 0
+	    compteur1 = 0
+	    compteur2 = 10
+	    len_addresse = 0
   	    len_a = len(ma_gw) #Pour avoir la taille d'une liste
 	    if len_a == 0:
-		    ma_gw[new_sw_id]=[src_ipp]	#Pour le premier ajout
+    		ma_gw[new_sw_id]=[src_ipp]	#Pour le premier ajout
 	    else:
     		for cle in ma_gw:
-        	    indic1 = bool
-        	    if cle == new_sw_id:
-            		for valeur in ma_gw.values():
-			    valeur = valeur [0]
-                    	    if valeur != src_ip_val:
-                    		ma_gw[new_sw_id].append(src_ipp)
-
-        	    else:
-           		indic1 = True
-   		if indic1 == True:
-        	    ma_gw[new_sw_id] = [src_ipp]
-        	    indic1 = False
+		    all_cle.append(cle)
+		print('Toutes les cles',all_cle)
+		len_c = len(all_cle)
+		aa = 0
+		while aa != len_c:
+		    cl = all_cle[aa]
+		    aa = aa +1
+		    if cl != new_sw_id :
+			compteur = compteur +1
+		if compteur == len_c :  
+		    ma_gw[new_sw_id] = [src_ipp]
+	   	if cle == new_sw_id : 
+		    compteur2 = 0
+		    az = 0	
+		    addresse_acomparer= ma_gw.get(cle)
+		    print('YYYYYYYYYYY',addresse_acomparer)
+		    len_addresse = len(addresse_acomparer)
+		    print('le nombre de YYYY',len_addresse)
+		    valeur_val = [] 
+		    while az != len_addresse:
+        	     	valeur_bien = []
+    		 	res = addresse_acomparer[az]
+		 	az = az +1 
+		 	print('########YYYY',res)
+ 	    	   	for number in res:
+        	    	    if number in "0123456789":
+			    	num = number
+			    	valeur_bien.append(int(num))
+        	    	print('=======valeurNouvelle',valeur_bien)			
+          	    	if valeur_bien != src_ip_val:
+			    print('=============EGALE')
+			    compteur2 = compteur2 +1
+			    print('nombre d egale', compteur2)	
+	   	
+	    if compteur2 == len_addresse:
+		print('#######""Nouvelleeeee')
+		ma_gw[new_sw_id].append(src_ipp)	
 	    print('============= TOPO =====================')
 	    print('-----------------------------------------')
 	    print(ma_gw)
