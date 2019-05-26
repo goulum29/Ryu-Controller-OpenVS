@@ -618,10 +618,12 @@ class Router(dict):
     def _timeout(self):
     	for vlan_router in self.values():
     		vlan_router.timeout_actions()
+    		self._addr_data_retour()
 
     def _addr_data_retour(self):
-        for vlan_routeur in self.values():
-            print(vlan_routeur.address_data())
+        for vlan_router in self.values():
+            data_addr = vlan_router.address_data_retour()
+            print(data_addr)
 
     def _cyclic_update_routing_tbl(self):
         while True:
