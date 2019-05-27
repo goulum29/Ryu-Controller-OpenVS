@@ -152,6 +152,7 @@ PRIORITY_IP_HANDLING = 5
 PRIORITY_TYPE_ROUTE = 'priority_route'
 TIMER_EXIST = False
 ma_gw = {}
+ma_topo = {}
 
 def get_priority(priority_type, vid=0, route=None):
     log_msg = None
@@ -562,16 +563,16 @@ class RouterController(ControllerBase):
  	len_c = len(all_cle)
 	len_cc = len(all_cle)
 	print('Tailles cles',len_c)
-	aa=0
-	while aa != len_c:
-    	     une_cle = all_cle[aa]
-	     print('la cle en traitement', une_cle)
-	     aa = aa+1
+	for cle in all_cle:
+	     reserve = all_cle 
+	     print('la cle en traitement', cle)
+	     ma_topo[cle]=[]	     
 	     addresse_comparer = []
-	     addresse_comparer= ma_gw.get(aa)
+	     addresse_comparer= ma_gw.get(cle)
 	     print('les addresse de la cle', addresse_comparer)
 	     len_taille = len(addresse_comparer)
 	     print('nombre de valeur',len_taille)
+	     pp = 0
 	     while len_taille != 0:
 	    	addres=[]
 		valeur_bien = []
@@ -584,34 +585,39 @@ class RouterController(ControllerBase):
 			  valeur_bien.append(int(num))
  	    	print('=======valeurNouvelle',valeur_bien)
 		bb = 0
-		while bb != len_cc:
-        	     toute_clee = []
-		     toute_clee = all_cle[bb]
-		     bb = bb+1
-		     if toute_clee != une_cle:
-			print('BIEN',toute_clee)
-			averifier=ma_gw.get(toute_clee)
-			print('averifier',averifier)
-			len_averifier = len(averifier)	
-			print(len_averifier)
-			zz = 0
-			while zz != len_averifier:
-			     valeur_a_verifier_bien = []
-			     print('biennn')
-			     len_averifier = len_averifier-1
-			     valeur_a_verifier = averifier[len_averifier]	
-			     print(valeur_a_verifier)
-			     for number in valeur_a_verifier:
-        	     		  if number in "0123456789":
-		          	       num = number
-			               valeur_a_verifier_bien.append(int(num))
- 	    		     print('=======valeurNouvelle',valeur_a_verifier_bien)
-			     if valeur_a_verifier_bien == valeur_bien:
-        	     		  print('VOISINS','sw_source',une_cle,'vers_sw',len_averifier)
-				  				
-				     	    	
-	     
- 	     			
+		test_cle=[]
+		test_cle = all_cle
+ 
+		print('cle a verfier',test_cle)
+		for number in test_cle :
+		     if cle != number:
+		          print('verif avec sw id',number)
+			  sw_en_cours = number
+		  	  averifier=ma_gw.get(number)
+	  	          print('les addresses du sw en verif',averifier)
+		          len_averifier = len(averifier)
+		          print(len_averifier)
+		          zz = 0
+		          while zz != len_averifier:
+			       valeur_a_verifier_bien = []
+		               print('biennn', len_averifier)
+		               valeur_a_verifier = averifier[len_averifier-1]	
+		               print('addresse en verif',valeur_a_verifier)
+		               for number in valeur_a_verifier:
+			            if number in "0123456789":
+		                         num = number
+			                 valeur_a_verifier_bien.append(int(num))
+		               print('=======valeurNouvelle',valeur_a_verifier_bien)
+			       if valeur_a_verifier_bien == valeur_bien:
+			            print('VOISINS','sw_source',cle,'vers_sw',sw_en_cours)
+			            ma_topo[cle].append(sw_en_cours)
+			            print(ma_topo)			
+			       len_averifier = len_averifier-1				     	    	
+		print('================================================')
+		print('=================== GRAPHE =====================')
+		print(ma_topo)
+		print('================================================')	
+		print('================================================')	     			
 
 
 ##################################################################################################
