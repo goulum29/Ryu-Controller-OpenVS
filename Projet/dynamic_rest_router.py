@@ -548,7 +548,76 @@ class RouterController(ControllerBase):
 	   	
     		     if compteur2 == 1:
 		         print('#######""Nouvelleeeee')
-		         ma_gw[dp_id].append(src_ip)    		  
+		         ma_gw[dp_id].append(src_ip)   
+
+		print(ma_gw)
+		all_cle = []
+	        compteur = 0
+		compteur3 = 10
+	        len_addresse = 0
+		partie3= valeur[1]
+		print('####Partie3',partie3)
+		comp = 0
+		for valeurr in partie3.values():
+		     comp = comp +1
+		     if comp == 1:
+			new_sw_id = valeurr
+		     if comp == 2:
+			src_ip = valeurr		
+		print ('ID_SWWW',new_sw_id)
+		print ('@@Reseau',src_ip)
+		ip = IPNetwork(src_ip)	#Obtient l addresse reseau
+	        src_ip = ip.network
+		src_ip = str(src_ip)
+	        src_ip_val = []
+		print ('@@Reseau',src_ip)
+	 	for number in src_ip:
+		     if number in "0123456789":
+			num = number
+        	        src_ip_val.append(int(num))
+	        print("#########",src_ip_val)
+  	        len_a = len(ma_gw) #Pour avoir la taille d'une liste
+	        if len_a == 0:
+		     print('rien')
+		     #ma_gw[dp_id]=[src_ip]	#Pour le premier ajout	
+		else:
+    		     for cle in ma_gw:
+			all_cle.append(cle)
+		     print('Toutes les cles',all_cle)
+		     len_c = len(all_cle)	
+		     aa = 0
+		     while aa != len_c:
+		         cl = all_cle[aa]
+		         aa = aa +1
+		         if cl != new_sw_id :
+			     compteur = compteur +1
+
+		     if aa == dp_id :
+		         az = 0	
+		         addresse_acomparer= ma_gw.get(cle)
+		         print('YYYYYYYYYYY',addresse_acomparer)
+		         len_addresse = len(addresse_acomparer)
+		         print('le nombre de YYYY',len_addresse)
+			 valeur_val = []  
+		         while az != len_addresse:
+        	     	     valeur_bien = []
+    		 	     res = addresse_acomparer[az]
+		 	     az = az +1 
+		 	     print('########YYYY',res)
+ 	    	   	     for number in res:
+        	    	         if number in "0123456789":
+			    	     num = number
+			    	     valeur_bien.append(int(num))
+ 	    	   	     print('=======valeurNouvelle',valeur_bien)
+			     compteur3 = 0			
+          	    	     if valeur_bien != src_ip_val:
+        	    	         print('=============EGALE')
+        	    	         compteur3 = compteur3 +1
+        	    	         print('nombre d egale', compteur3)	
+	   	
+    		     if compteur3 == 1:
+		         print('#######""Nouvelleeeee')
+		         ma_gw[dp_id].append(src_ip)  		  
 	     
 	    	print('============= TOPO =====================')
 	    	print('-----------------------------------------')
@@ -570,6 +639,9 @@ class RouterController(ControllerBase):
 	     addresse_comparer = []
 	     addresse_comparer= ma_gw.get(cle)
 	     print('les addresse de la cle', addresse_comparer)
+	     len_taille = len(addresse_comparer)
+	     if len_taille == 3:
+	    	del addresse_comparer[2]			     
 	     len_taille = len(addresse_comparer)
 	     print('nombre de valeur',len_taille)
 	     pp = 0
