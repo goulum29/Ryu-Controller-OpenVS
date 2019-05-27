@@ -1,26 +1,11 @@
-# Copyright (C) 2013 Nippon Telegraph and Telephone Corporation.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-# implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-
+import time
 import logging
 import numbers
 import socket
 import struct
 
 import json
-
+from ryu.controller import event
 from ryu.app.wsgi import ControllerBase
 from ryu.app.wsgi import Response
 from ryu.app.wsgi import WSGIApplication
@@ -49,8 +34,10 @@ from ryu.ofproto import inet
 from ryu.ofproto import ofproto_v1_0
 from ryu.ofproto import ofproto_v1_2
 from ryu.ofproto import ofproto_v1_3
-from netaddr import *
-
+from threading import Thread
+from ryu.app import hello_event
+from ryu.app import timeout_event
+from netaddr import * 
 # =============================
 #          REST API
 # =============================
@@ -163,10 +150,8 @@ PRIORITY_L2_SWITCHING = 4
 PRIORITY_IP_HANDLING = 5
 
 PRIORITY_TYPE_ROUTE = 'priority_route'
-
+TIMER_EXIST = False
 ma_gw = {}
-
-
 
 def get_priority(priority_type, vid=0, route=None):
     log_msg = None
@@ -200,102 +185,17 @@ def get_priority_type(priority, vid):
         priority -= PRIORITY_VLAN_SHIFT
     return priority
 
-def make_edge(start, end, cost=1):
-  return Edge(start, end, cost)
 
 class NotFoundError(RyuException):
     message = 'Router SW is not connected. : switch_id=%(switch_id)s'
 
-"""class Graph(dict):
-    def __init__(self):
-    	inf = float('inf')
-    	Edge = ('Edge', 'start, end, cost')
-    	graph= self.VlanRouter._packetin_to_node
-
-    def __init__(self, edges):
-        # let's check that the data is right
-        wrong_edges = [i for i in edges if len(i) not in [2, 3]]
-        if wrong_edges:
-            raise ValueError('Wrong edges data: {}'.format(wrong_edges))
-
-        self.edges = [make_edge(*edge) for edge in edges]
-
-    @property
-    def vertices(self):
-        return set(
-            sum(
-                ([edge.start, edge.end] for edge in self.edges), []
-            )
-        )
-
-    def get_node_pairs(self, n1, n2, both_ends=True):
-        if both_ends:
-            node_pairs = [[n1, n2], [n2, n1]]
-        else:
-            node_pairs = [[n1, n2]]
-        return node_pairs
-
-    def remove_edge(self, n1, n2, both_ends=True):
-        node_pairs = self.get_node_pairs(n1, n2, both_ends)
-        edges = self.edges[:]
-        for edge in edges:
-            if [edge.start, edge.end] in node_pairs:
-                self.edges.remove(edge)
-
-    def add_edge(self, n1, n2, cost=1, both_ends=True):
-        node_pairs = self.get_node_pairs(n1, n2, both_ends)
-        for edge in self.edges:
-            if [edge.start, edge.end] in node_pairs:
-                return ValueError('Edge {} {} already exists'.format(n1, n2))
-
-        self.edges.append(Edge(start=n1, end=n2, cost=cost))
-        if both_ends:
-            self.edges.append(Edge(start=n2, end=n1, cost=cost))
-
-    @property
-    def neighbours(self):
-        neighbours = {vertex: set() for vertex in self.vertices}
-        for edge in self.edges:
-            neighbours[edge.start].add((edge.end, edge.cost))
-
-        return neighbours
-
-    def dijkstra(self, source, dest):
-        assert source in self.vertices, 'Such source node doesn\'t exist'
-        distances = {vertex: inf for vertex in self.vertices}
-	print('##########################dans dijkstra')
-        previous_vertices = {
-            vertex: None for vertex in self.vertices
-        }
-        distances[source] = 0
-        vertices = self.vertices.copy()
-
-        while vertices:
-            current_vertex = min(
-                vertices, key=lambda vertex: distances[vertex])
-            vertices.remove(current_vertex)
-            if distances[current_vertex] == inf:
-                break
-            for neighbour, cost in self.neighbours[current_vertex]:
-                alternative_route = distances[current_vertex] + cost
-                if alternative_route < distances[neighbour]:
-                    distances[neighbour] = alternative_route
-                    previous_vertices[neighbour] = current_vertex
-
-        path, current_vertex = deque(), dest
-        while previous_vertices[current_vertex] is not None:
-            path.appendleft(current_vertex)
-            current_vertex = previous_vertices[current_vertex]
-        if path:
-            path.appendleft(current_vertex)
-        return path""" 
 
 class CommandFailure(RyuException):
     pass
 
 
 class RestRouterAPI(app_manager.RyuApp):
-
+	
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION,
                     ofproto_v1_2.OFP_VERSION,
                     ofproto_v1_3.OFP_VERSION]
@@ -305,7 +205,7 @@ class RestRouterAPI(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(RestRouterAPI, self).__init__(*args, **kwargs)
-
+		#print("Lancement de l'application")
         # logger configure
         RouterController.set_logger(self.logger)
 
@@ -351,6 +251,7 @@ class RestRouterAPI(app_manager.RyuApp):
     def datapath_handler(self, ev):
         if ev.enter:
             RouterController.register_router(ev.dp)
+            print(ev.dp)
         else:
             RouterController.unregister_router(ev.dp)
 
@@ -388,7 +289,21 @@ class RestRouterAPI(app_manager.RyuApp):
         self._stats_reply_handler(ev)
 
     # TODO: Update routing table when port status is changed.
+    @set_ev_cls(hello_event.SendUdp)
+    def _test_event_handler(self,ev):
+        if ev.msg == 'sendudp':
+            #self.logger.info('*** Received event: ev.msg = %s', ev.msg)
+            #print("Envoi UDP",ev.msg)
+            #print()
+            #print()
+            #print()
+            RouterController.link_state(ev.msg)
 
+    @set_ev_cls(timeout_event.SendTimeout)
+    def _timeout_event_handler(self,ev):
+    	if ev.msg == 'SendTimeout':
+    		print("Timeout recu")
+    		RouterController.timeout_handler(ev.msg)
 
 # REST command template
 def rest_command(func):
@@ -420,6 +335,7 @@ class RouterController(ControllerBase):
 
     _ROUTER_LIST = {}
     _LOGGER = None
+    sw_identifiant = ()
 
     def __init__(self, req, link, data, **config):
         super(RouterController, self).__init__(req, link, data, **config)
@@ -461,6 +377,245 @@ class RouterController(ControllerBase):
             router = cls._ROUTER_LIST[dp_id]
             router.packet_in_handler(msg)
 
+    @classmethod
+    def link_state(cls,msg):
+    	nb_router = len(cls._ROUTER_LIST)
+    	#print("Le nombre de router est de : ", nb_router)
+    	#print("NB ROUTEUR : ",cls._ROUTER_LIST)#Liste router   	
+    	#print(range(len(cls._ROUTER_LIST)+1))
+    	for router_id in range(len(cls._ROUTER_LIST)):
+        	dp_id = router_id + 1
+        	#print("Pour le router ID = ",dp_id)
+        	router = cls._ROUTER_LIST[dp_id]
+        	router._linkstate()
+        	#print("Tour numero ",router_id)
+
+##################################################################################################
+##################################################################################################
+    @classmethod
+    def timeout_handler(cls,msg):
+    	nb_router = len(cls._ROUTER_LIST)
+    	for router_id in range(len(cls._ROUTER_LIST)):
+		listt = []
+        	dp_id = router_id + 1
+        	router = cls._ROUTER_LIST[dp_id]
+        	router._timeout()
+        	print(router._addr_data_retour())#affichage du retour de la fonction _addr_data_retour()
+		print('####router_id', dp_id)
+		listt=router._addr_data_retour()
+		bon = listt[1]
+		print('bon',str(bon))
+	 	for valeur in bon.values():
+		     print ('testt',valeur)
+		partie1= valeur[0]
+		print('####Partie1',partie1)
+		comp = 0
+		for valeurr in partie1.values():
+		     comp = comp +1
+		     if comp == 1:
+			new_sw_id = valeurr
+		     if comp == 2:
+			src_ip = valeurr		
+		print ('ID_SWWW',new_sw_id)
+		all_cle = []
+	        compteur = 0
+		compteur2 = 10
+	        len_addresse = 0
+
+		print ('@@Reseau',src_ip)
+		ip = IPNetwork(src_ip)	#Obtient l addresse reseau
+	        src_ip = ip.network
+		src_ip = str(src_ip)
+	        src_ip_val = []
+		print ('@@Reseau',src_ip)
+	 	for number in src_ip:
+		     if number in "0123456789":
+			num = number
+        	        src_ip_val.append(int(num))
+	        print("#########",src_ip_val)	
+  	        len_a = len(ma_gw) #Pour avoir la taille d'une liste
+	        if len_a == 0:
+		     ma_gw[dp_id]=[src_ip]	#Pour le premier ajout
+		     print(ma_gw)	
+		else:
+    		     for cle in ma_gw:
+			all_cle.append(cle)
+		     print('Toutes les cles',all_cle)
+		     len_c = len(all_cle)	
+		     aa = 0
+		     while aa != len_c:
+		         cl = all_cle[aa]
+		         aa = aa +1
+		         if cl != new_sw_id :
+			     compteur = compteur +1
+
+		         if aa == dp_id :
+		             az = 0	
+		             addresse_acomparer= ma_gw.get(cle)
+		             print('YYYYYYYYYYY',addresse_acomparer)
+		             len_addresse = len(addresse_acomparer)
+			     print('le nombre de YYYY',len_addresse)
+			     valeur_val = []  
+		             while az != len_addresse:
+        	    	         valeur_bien = []
+    		 	         res = addresse_acomparer[az]
+		 	         az = az +1 
+		 	         print('########YYYY',res)
+ 	    	   	         for number in res:
+        	    	             if number in "0123456789":
+			    	         num = number
+			    	         valeur_bien.append(int(num))
+ 	    	   	         print('=======valeurNouvelle',valeur_bien)
+        	     	         compteur2 = 0			
+          	    	         if valeur_bien != src_ip_val:
+        	    	             print('=============EGALE')
+        	    	             compteur2 = compteur2 +1
+        	    	             print('nombre d egale', compteur2)	
+		         if compteur == len_c :  
+		             ma_gw[dp_id] = [src_ip]
+	   	
+    		     if compteur2 == len_addresse:
+		         print('#######""Nouvelleeeee')
+		         ma_gw[dp_id].append(src_ip)
+    		     
+	   	
+
+		print(ma_gw)
+		all_cle = []
+	        compteur = 0
+		compteur2 = 10
+	        len_addresse = 0
+		partie2= valeur[2]
+		print('####Partie2',partie2)
+		comp = 0
+		for valeurr in partie2.values():
+		     comp = comp +1
+		     if comp == 1:
+			new_sw_id = valeurr
+		     if comp == 2:
+			src_ip = valeurr		
+		print ('ID_SWWW',new_sw_id)
+		print ('@@Reseau',src_ip)
+		ip = IPNetwork(src_ip)	#Obtient l addresse reseau
+	        src_ip = ip.network
+		src_ip = str(src_ip)
+	        src_ip_val = []
+		print ('@@Reseau',src_ip)
+	 	for number in src_ip:
+		     if number in "0123456789":
+			num = number
+        	        src_ip_val.append(int(num))
+	        print("#########",src_ip_val)
+  	        len_a = len(ma_gw) #Pour avoir la taille d'une liste
+	        if len_a == 0:
+		     print('rien')
+		     #ma_gw[dp_id]=[src_ip]	#Pour le premier ajout	
+		else:
+    		     for cle in ma_gw:
+			all_cle.append(cle)
+		     print('Toutes les cles',all_cle)
+		     len_c = len(all_cle)	
+		     aa = 0
+		     while aa != len_c:
+		         cl = all_cle[aa]
+		         aa = aa +1
+		         if cl != new_sw_id :
+			     compteur = compteur +1
+
+		     if aa == dp_id :
+		         az = 0	
+		         addresse_acomparer= ma_gw.get(cle)
+		         print('YYYYYYYYYYY',addresse_acomparer)
+		         len_addresse = len(addresse_acomparer)
+		         print('le nombre de YYYY',len_addresse)
+			 valeur_val = []  
+		         while az != len_addresse:
+        	     	     valeur_bien = []
+    		 	     res = addresse_acomparer[az]
+		 	     az = az +1 
+		 	     print('########YYYY',res)
+ 	    	   	     for number in res:
+        	    	         if number in "0123456789":
+			    	     num = number
+			    	     valeur_bien.append(int(num))
+ 	    	   	     print('=======valeurNouvelle',valeur_bien)
+			     compteur2 = 0			
+          	    	     if valeur_bien != src_ip_val:
+        	    	         print('=============EGALE')
+        	    	         compteur2 = compteur2 +1
+        	    	         print('nombre d egale', compteur2)	
+	   	
+    		     if compteur2 == 1:
+		         print('#######""Nouvelleeeee')
+		         ma_gw[dp_id].append(src_ip)    		  
+	     
+	    	print('============= TOPO =====================')
+	    	print('-----------------------------------------')
+	    	print(ma_gw)
+	    	print('------------------------------------------')
+	    	print('=========== Fin TOPO =====================')
+
+	all_cle = []	
+    	for cle in ma_gw:
+    	     all_cle.append(cle)
+	print('Toutes les cles',all_cle)			
+ 	len_c = len(all_cle)
+	len_cc = len(all_cle)
+	print('Tailles cles',len_c)
+	aa=0
+	while aa != len_c:
+    	     une_cle = all_cle[aa]
+	     print('la cle en traitement', une_cle)
+	     aa = aa+1
+	     addresse_comparer = []
+	     addresse_comparer= ma_gw.get(aa)
+	     print('les addresse de la cle', addresse_comparer)
+	     len_taille = len(addresse_comparer)
+	     print('nombre de valeur',len_taille)
+	     while len_taille != 0:
+	    	addres=[]
+		valeur_bien = []
+		len_taille = len_taille-1
+    		addres= addresse_comparer[len_taille]    				    
+  		print('addresse',addres) 
+ 	    	for number in addres:
+        	     if number in "0123456789":
+		          num = number
+			  valeur_bien.append(int(num))
+ 	    	print('=======valeurNouvelle',valeur_bien)
+		bb = 0
+		while bb != len_cc:
+        	     toute_clee = []
+		     toute_clee = all_cle[bb]
+		     bb = bb+1
+		     if toute_clee != une_cle:
+			print('BIEN',toute_clee)
+			averifier=ma_gw.get(toute_clee)
+			print('averifier',averifier)
+			len_averifier = len(averifier)	
+			print(len_averifier)
+			zz = 0
+			while zz != len_averifier:
+			     valeur_a_verifier_bien = []
+			     print('biennn')
+			     len_averifier = len_averifier-1
+			     valeur_a_verifier = averifier[len_averifier]	
+			     print(valeur_a_verifier)
+			     for number in valeur_a_verifier:
+        	     		  if number in "0123456789":
+		          	       num = number
+			               valeur_a_verifier_bien.append(int(num))
+ 	    		     print('=======valeurNouvelle',valeur_a_verifier_bien)
+			     if valeur_a_verifier_bien == valeur_bien:
+        	     		  print('VOISINS','sw_source',une_cle,'vers_sw',len_averifier)
+				  				
+				     	    	
+	     
+ 	     			
+
+
+##################################################################################################
+##################################################################################################
     # GET /router/{switch_id}
     @rest_command
     def get_data(self, req, switch_id, **_kwargs):
@@ -526,6 +681,13 @@ class RouterController(ControllerBase):
         else:
             raise NotFoundError(switch_id=switch_id)
 
+    def _recup_addr_sw(self):
+    	nb_router = len(cls._ROUTER_LIST)
+    	for router_id in range(len(cls._ROUTER_LIST)):
+        	dp_id = router_id + 1
+        	router = cls._ROUTER_LIST[dp_id]
+        	
+
 
 class Router(dict):
     def __init__(self, dp, logger):
@@ -534,7 +696,7 @@ class Router(dict):
         self.dpid_str = dpid_lib.dpid_to_str(dp.id)
         self.sw_id = {'sw_id': self.dpid_str}
         self.logger = logger
-
+        self.addr_dico = dict()
         self.port_data = PortData(dp.ports)
 
         ofctl = OfCtl.factory(dp, logger)
@@ -663,15 +825,37 @@ class Router(dict):
         if header_list:
             # Check vlan-tag
             vlan_id = VLANID_NONE
+            if UDP in header_list:
+                print("UDP recu")
             if VLAN in header_list:
                 vlan_id = header_list[VLAN].vid
 
             # Event dispatch
             if vlan_id in self:
                 self[vlan_id].packet_in_handler(msg, header_list)
-            else:
-                self.logger.debug('Drop unknown vlan packet. [vlan_id=%d]',
-                                  vlan_id, extra=self.sw_id)
+            #else:
+                #self.logger.debug('Drop unknown vlan packet. [vlan_id=%d]',vlan_id, extra=self.sw_id)#Annulation des fonctions qui drop les paquets
+    def _linkstate(self):
+    	#print("DataPath : " ,self.dp)
+    	#print("SwitchID : ",self.sw_id)
+    	for vlan_router in self.values():
+    		vlan_router.send_udp_hello_all_gw()
+    		#print("Boucle _LinkState, tour numero : ", vlan_router)
+
+    def _timeout(self):
+    	for vlan_router in self.values():
+    		vlan_router.timeout_actions()
+    		#self._addr_data_retour()
+
+
+    def _addr_data_retour(self):#Retourne un dic avec association interface et id switch
+    	liste_addr = []
+        for vlan_router in self.values():#on balance les adresses dans une liste
+            data_addr = vlan_router.address_data_retour()
+            #print(data_addr)
+            liste_addr.append(self.sw_id)#ajout id switch
+            liste_addr.append(data_addr)#ajout ip 
+        return liste_addr
 
     def _cyclic_update_routing_tbl(self):
         while True:
@@ -679,7 +863,7 @@ class Router(dict):
             for vlan_router in self.values():
                 vlan_router.send_arp_all_gw()
                 hub.sleep(1)
-
+                print("CYCLIC UPDATE ROUTING TABLE") 
             hub.sleep(CHK_ROUTING_TBL_INTERVAL)
 
 
@@ -689,7 +873,6 @@ class VlanRouter(object):
         self.vlan_id = vlan_id
         self.dp = dp
         self.sw_id = {'sw_id': dpid_lib.dpid_to_str(dp.id)}
-	self.sw_idd = {'sw_id',dpid_lib.dpid_to_str(dp.id)}
         self.logger = logger
 
         self.port_data = port_data
@@ -697,107 +880,21 @@ class VlanRouter(object):
         self.routing_tbl = RoutingTable()
         self.packet_buffer = SuspendPacketList(self.send_icmp_unreach_error)
         self.ofctl = OfCtl.factory(dp, logger)
- 	self.dijkstra() 
+        self.link_dico = dict()
+        #self.link_state = LinkState(self.ofctl,self.routing_tbl,self.address_data,self.packet_buffer,self.vlan_id,self.sw_id)#a reactiver
+        #print("Avant default route drop Dans VlanRouter")
+        self.ipaddr_gw_opp = self.routing_tbl.get_gateways
+        #print(self.ipaddr_gw_opp)
         # Set flow: default route (drop)
         self._set_defaultroute_drop()
-	sw_identifiant = ()
-	ma_gw = {}
+        self.sw_idd = {'sw_id',dpid_lib.dpid_to_str(dp.id)}#Variable code yassine
+        self.ma_gw = {}
+        #print("Avant lancement de la classe LinkState")
+    def address_data_retour(self):#On returne les infos des interfaces
+        #print(self.address_data.get_data())
+        #print(self._get_address_data())
 
-#==========================================================================================================
-    def dijkstra(self):
-
-   	TableDeRoutage = self.routing_tbl
-	print('#######TableDeRoutage',TableDeRoutage)
-	gateways = self.routing_tbl.get_gateways()
-	print('#######TableDegateways',gateways)
-	route = self.routing_tbl.get_data()
-	print('#######TableDeroute',route)
-        for gateway in gateways:
-            address = self.address_data.get_data(ip=gateway)
-            #print("Variable address.default_gw sera utilise comme ip source:",address.default_gw)
-            #print("Variable gateway sera utilise comme ip de destination :",gateway)
-            src_ip = address.default_gw
-	    print('#######TableDesrc_ip',src_ip)
-	    sw_id= self.sw_id	
-	    sw_id_recu= self.sw_idd
-	    print (sw_id_recu)
-	    sw_id_recu = list(sw_id_recu)
-	    sw_id_recu = sw_id_recu[0]
-	    for numbers in sw_id_recu:
-    		if numbers !='0':
-        	    new_sw_id =  numbers
-       		    print("=======>>> Numero du switch :",new_sw_id) #Donnees entrantes
- 
-	    netmask = '24'		#A changer par le reel(variable)
-	    tout = src_ip+"/" +netmask
-	    ip = IPNetwork(tout)	#Obtient l addresse reseau
-	    src_ip = ip.network
-	    src_ipp = str(src_ip)
-	    src_ip_val = []
-	    print("=======>>@reseau de l intreface",src_ipp)
-	    for number in src_ipp:
-    		if number in "0123456789":
-        	    num = number
-        	    src_ip_val.append(int(num))
-	    print("#########",src_ip_val)
-	    taille_ipaddr = []
-	    all_cle = []
-	    indic = bool
-	    indic2 = bool
-	    compteur = 0
-	    compteur1 = 0
-	    compteur2 = 10
-	    len_addresse = 0
-  	    len_a = len(ma_gw) #Pour avoir la taille d'une liste
-	    if len_a == 0:
-    		ma_gw[new_sw_id]=[src_ipp]	#Pour le premier ajout
-	    else:
-    		for cle in ma_gw:
-		    all_cle.append(cle)
-		print('Toutes les cles',all_cle)
-		len_c = len(all_cle)
-		aa = 0
-		while aa != len_c:
-		    cl = all_cle[aa]
-		    aa = aa +1
-		    if cl != new_sw_id :
-			compteur = compteur +1
-		if compteur == len_c :  
-		    ma_gw[new_sw_id] = [src_ipp]
-	   	if cle == new_sw_id : 
-		    compteur2 = 0
-		    az = 0	
-		    addresse_acomparer= ma_gw.get(cle)
-		    print('YYYYYYYYYYY',addresse_acomparer)
-		    len_addresse = len(addresse_acomparer)
-		    print('le nombre de YYYY',len_addresse)
-		    valeur_val = [] 
-		    while az != len_addresse:
-        	     	valeur_bien = []
-    		 	res = addresse_acomparer[az]
-		 	az = az +1 
-		 	print('########YYYY',res)
- 	    	   	for number in res:
-        	    	    if number in "0123456789":
-			    	num = number
-			    	valeur_bien.append(int(num))
-        	    	print('=======valeurNouvelle',valeur_bien)			
-          	    	if valeur_bien != src_ip_val:
-			    print('=============EGALE')
-			    compteur2 = compteur2 +1
-			    print('nombre d egale', compteur2)	
-	   	
-	    if compteur2 == len_addresse:
-		print('#######""Nouvelleeeee')
-		ma_gw[new_sw_id].append(src_ipp)	
-	    print('============= TOPO =====================')
-	    print('-----------------------------------------')
-	    print(ma_gw)
-	    print('------------------------------------------')
-	    print('=========== Fin TOPO =====================')
-        	    
-
-#==========================================================================================================
+        return self._get_address_data()       
 
     def delete(self, waiters):
         # Delete flow.
@@ -1131,7 +1228,7 @@ class VlanRouter(object):
             if msg.reason == ofproto.OFPR_INVALID_TTL:
                 self._packetin_invalid_ttl(msg, header_list)
                 return
-	self.dijkstra() 
+
         # Analyze event type.
         if ARP in header_list:
             self._packetin_arp(msg, header_list)
@@ -1145,13 +1242,32 @@ class VlanRouter(object):
                     if header_list[ICMP].type == icmp.ICMP_ECHO_REQUEST:
                         self._packetin_icmp_req(msg, header_list)
                         return
+                elif header_list[UDP].dst_port == 6000:#Test si le paquet entrant est de l'udp sur le port 6000
+                	self._packetin_hello_udp(msg, header_list)
+                	return
                 elif TCP in header_list or UDP in header_list:
                     self._packetin_tcp_udp(msg, header_list)
+                    if header_list[UDP].dst_port == 6000: #Test si le paquet entrant est de l'udp sur le port 6000
+                        #print("HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE HELLO PACKET RECEIVE ")#Simple print pour l'instant
+                        self._packetin_hello_udp(msg, header_list)
                     return
+            
             else:
                 # Packet to internal host or gateway router.
                 self._packetin_to_node(msg, header_list)
                 return
+    def _packetin_udp_timer(self, msg):#Fonction Timer
+    	timer = 60
+    	#self.thread = hub.spawn(self._cyclic_update_routing_tbl)
+    	while(timer>0):#Tant que le timer n'a pas atteint 0
+    		timer=timer-1
+    		time.sleep(1)
+    		print("On enleve 1 au timer, le timer = %s" % timer)
+
+    	#hub.kill(self.thread_udp_timer)#
+        #self.thread_udp_timer.wait()#
+        #self.logger.info('Stop timer',extra=self.sw_id)#
+    	return timer
 
     def _packetin_arp(self, msg, header_list):
         src_addr = self.address_data.get_data(ip=header_list[ARP].src_ip)
@@ -1262,6 +1378,31 @@ class VlanRouter(object):
         self.logger.info('Send ICMP destination unreachable to [%s].', srcip,
                          extra=self.sw_id)
 
+    def _packetin_hello_udp(self, msg, header_list):
+    	#Affiche sur le logger que un paquet hello a ete recu
+        srcip = ip_addr_ntoa(header_list[IPV4].src)
+        dstip = ip_addr_ntoa(header_list[IPV4].dst)
+        self.logger.info('Paquet hello recu de [%s] sur le port du routeur [%s] etat du lien valide',srcip, dstip, extra=self.sw_id)
+        key_dico = srcip + ":" + dstip#Sorte de cle primaire, une valeur possible
+        compteur = 5
+        self.link_dico[key_dico] = compteur
+        #print("Paquet hello recu ajout de 5 pour le couple adresse : ",self.link_dico[key_dico]," pour la cle : ", key_dico)
+
+    def timeout_actions(self):
+    	#print("Dans fonction timeout_actions")
+    	#print(self.link_dico)
+    	#Decremente le compteur si le lien est down on l'indique via le logger
+        #print("#####Adresse data : ",self.address_data)
+    	for key in self.link_dico.keys():
+    		valeur = self.link_dico[key] - 1
+    		self.link_dico[key] = valeur
+    		#print("Dans boucle for time_out_action : ",valeur)
+    		if valeur == 0 or valeur <0:
+    			self.logger.info('Lien [%s] down sur le routeur',key ,extra=self.sw_id)
+    			self.dijkstra()
+
+    		#print("Affiche de la variable self link dico a la fin du timeout actions : ", self.link_dico)
+
     def _packetin_to_node(self, msg, header_list):
         if len(self.packet_buffer) >= MAX_SUSPENDPACKETS:
             self.logger.info('Packet is dropped, MAX_SUSPENDPACKETS exceeded.',
@@ -1274,51 +1415,7 @@ class VlanRouter(object):
         dst_ip = header_list[IPV4].dst
         srcip = ip_addr_ntoa(header_list[IPV4].src)
         dstip = ip_addr_ntoa(dst_ip)
-#=================================================================================
-        start = srcip
-        goal = dstip
-	metric = 1
-	graph = {start: {goal: metric}, goal: {start: metric}}
-        shortest_distance = {}
-    	predecessor = {}
-    	unseenNodes = graph
-    	infinity = 99
-    	path = []
-    	for node in unseenNodes:
-    	    shortest_distance[node] = infinity
-    	shortest_distance[start] = 0
-	
-    	while unseenNodes:
-    	    minNode = None
-    	    for node in unseenNodes:
-    	        if minNode is None:
-    	            minNode = node
-    	        elif shortest_distance[node] < shortest_distance[minNode]:
-    	            minNode = node
-	
-    	    for childNode, weight in graph[minNode].items():
-    	        if weight + shortest_distance[minNode] < shortest_distance[childNode]:
-    	            shortest_distance[childNode] = weight + shortest_distance[minNode]
-    	            predecessor[childNode] = minNode
-    	    unseenNodes.pop(minNode)
-	
-    	currentNode = goal
-    	while currentNode != start:
-    	    try:
-    	        path.insert(0, currentNode)
-    	        currentNode = predecessor[currentNode]
-    	    except KeyError:
-    	        print('Path not reachable')
-    	        break
-    	path.insert(0, start)
-    	if shortest_distance[goal] != infinity:
-    	    print('###########################Shortest distance is ' + str(shortest_distance[goal]))
-    	    print('And the path is ' + str(path))
-	premier = (start,goal,shortest_distance[goal])
-	print(str(premier))
-  
 
-#==================================================================================
         address = self.address_data.get_data(ip=dst_ip)
         if address is not None:
             log_msg = 'Receive IP packet from [%s] to an internal host [%s].'
@@ -1339,8 +1436,6 @@ class VlanRouter(object):
             self.send_arp_request(src_ip, dst_ip, in_port=in_port)
             self.logger.info('Send ARP request (flood)', extra=self.sw_id)
 
-	return premier
-	
     def _packetin_invalid_ttl(self, msg, header_list):
         # Send ICMP TTL error.
         srcip = ip_addr_ntoa(header_list[IPV4].src)
@@ -1362,6 +1457,30 @@ class VlanRouter(object):
         for gateway in gateways:
             address = self.address_data.get_data(ip=gateway)
             self.send_arp_request(address.default_gw, gateway)
+            #print("Variable address.default_gw dans send_arp_all :",address.default_gw)
+            #print("Variable :",gateway)
+
+    def send_udp_hello_all_gw(self):
+        #print("DANS send_udp_hello_all_gw")
+        gateways = self.routing_tbl.get_gateways()
+        for gateway in gateways:
+            address = self.address_data.get_data(ip=gateway)
+            #print("Variable address.default_gw sera utilise comme ip source:",address.default_gw)
+            #print("Variable gateway sera utilise comme ip de destination :",gateway)
+            src_ip = address.default_gw
+            dst_ip = gateway
+            self.send_hello_request_to_gw(src_ip,dst_ip,in_port=None)
+
+    def send_hello_request_to_gw(self, src_ip, dst_ip,in_port=None):
+    	#print("AFFICHAGE VARIABLE in_port avant for : " ,in_port)
+        for send_port in self.port_data.values():
+            if in_port is None or in_port != send_port.port_no:
+                src_mac = mac_lib.BROADCAST_STR
+                dst_mac = send_port.mac#inversion a modif peutetre
+                ip_dst = dst_ip
+                inport = send_port.port_no
+                output = send_port.port_no
+                self.ofctl.send_udp(inport,output,self.vlan_id,src_mac,dst_mac,dst_ip,src_ip)
 
     def send_arp_request(self, src_ip, dst_ip, in_port=None):
         # Send ARP request from all ports.
@@ -1372,10 +1491,19 @@ class VlanRouter(object):
                 arp_target_mac = mac_lib.DONTCARE_STR
                 inport = self.ofctl.dp.ofproto.OFPP_CONTROLLER
                 output = send_port.port_no
+                #print("ARP : Dans fonction send_arp_request")
+                #print("ARP : Adresse mac source : ",src_mac)
+                #print("ARP : Adresse mac de destination : ",dst_mac)
+                #print("ARP : Adresse mac cible de la requete arp : ",arp_target_mac)
+                #print("ARP : INPORT : ",inport)
+                #print("ARP : OUTPUT : ",output)
+                #print("ARP : Adresse IP SOURCE : ",src_ip)
+                #print("ARP : Adresse IP DESTINATION : ",dst_ip)
+
                 self.ofctl.send_arp(arp.ARP_REQUEST, self.vlan_id,
                                     src_mac, dst_mac, src_ip, dst_ip,
                                     arp_target_mac, inport, output)
-
+    
     def send_icmp_unreach_error(self, packet_buffer):
         # Send ICMP host unreach error.
         self.logger.info('ARP reply wait timer was timed out.',
@@ -1396,6 +1524,7 @@ class VlanRouter(object):
 
     def _update_routing_tbl(self, msg, header_list):
         # Set flow: routing to gateway.
+        #print("Dans _update_routing_tbl")
         out_port = self.ofctl.get_packetin_inport(msg)
         src_mac = header_list[ARP].src_mac
         dst_mac = self.port_data[out_port].mac
@@ -1469,8 +1598,98 @@ class VlanRouter(object):
         self.logger.debug('Receive packet from unknown IP[%s].',
                           ip_addr_ntoa(src_ip), extra=self.sw_id)
         return None
+    
+    """def dijkstra(self):
 
-
+   	TableDeRoutage = self.routing_tbl
+	print('#######TableDeRoutage',TableDeRoutage)
+	gateways = self.routing_tbl.get_gateways()
+	print('#######TableDegateways',gateways)
+	route = self.routing_tbl.get_data()
+	print('#######TableDeroute',route)
+        for gateway in gateways:
+            address = self.address_data.get_data(ip=gateway)
+            #print("Variable address.default_gw sera utilise comme ip source:",address.default_gw)
+            #print("Variable gateway sera utilise comme ip de destination :",gateway)
+            src_ip = address.default_gw
+	    print('#######TableDesrc_ip',src_ip)
+	    sw_id= self.sw_id	
+	    sw_id_recu= self.sw_idd
+	    print (sw_id_recu)
+	    sw_id_recu = list(sw_id_recu)
+	    sw_id_recu = sw_id_recu[0]
+	    for numbers in sw_id_recu:
+    		if numbers !='0':
+        	    new_sw_id =  numbers
+       		    print("=======>>> Numero du switch :",new_sw_id) #Donnees entrantes
+ 
+	    netmask = '24'		#A changer par le reel(variable)
+	    tout = src_ip+"/" +netmask
+	    ip = IPNetwork(tout)	#Obtient l addresse reseau
+	    src_ip = ip.network
+	    src_ipp = str(src_ip)
+	    src_ip_val = []
+	    print("=======>>@reseau de l intreface",src_ipp)
+	    for number in src_ipp:
+    		if number in "0123456789":
+        	    num = number
+        	    src_ip_val.append(int(num))
+	    print("#########",src_ip_val)
+	    taille_ipaddr = []
+	    all_cle = []
+	    indic = bool
+	    indic2 = bool
+	    compteur = 0
+	    compteur1 = 0
+	    compteur2 = 10
+	    len_addresse = 0
+  	    len_a = len(self.ma_gw) #Pour avoir la taille d'une liste
+	    if len_a == 0:
+    		self.ma_gw[new_sw_id]=[src_ipp]	#Pour le premier ajout
+	    else:
+    		for cle in self.ma_gw:
+		    all_cle.append(cle)
+		print('Toutes les cles',all_cle)
+		len_c = len(all_cle)
+		aa = 0
+		while aa != len_c:
+		    cl = all_cle[aa]
+		    aa = aa +1
+		    if cl != new_sw_id :
+			compteur = compteur +1
+		if compteur == len_c :  
+		    self.ma_gw[new_sw_id] = [src_ipp]
+	   	if cle == new_sw_id : 
+		    compteur2 = 0
+		    az = 0	
+		    addresse_acomparer= self.ma_gw.get(cle)
+		    print('YYYYYYYYYYY',addresse_acomparer)
+		    len_addresse = len(addresse_acomparer)
+		    print('le nombre de YYYY',len_addresse)
+		    valeur_val = [] 
+		    while az != len_addresse:
+        	     	valeur_bien = []
+    		 	res = addresse_acomparer[az]
+		 	az = az +1 
+		 	print('########YYYY',res)
+ 	    	   	for number in res:
+        	    	    if number in "0123456789":
+			    	num = number
+			    	valeur_bien.append(int(num))
+        	    	print('=======valeurNouvelle',valeur_bien)			
+          	    	if valeur_bien != src_ip_val:
+			    print('=============EGALE')
+			    compteur2 = compteur2 +1
+			    print('nombre d egale', compteur2)	
+	   	
+	    if compteur2 == len_addresse:
+		print('#######""Nouvelleeeee')
+		self.ma_gw[new_sw_id].append(src_ipp)	
+	    print('============= TOPO =====================')
+	    print('-----------------------------------------')
+	    print(self.ma_gw)
+	    print('------------------------------------------')
+	    print('=========== Fin TOPO =====================')  """      
 class PortData(dict):
     def __init__(self, ports):
         super(PortData, self).__init__()
@@ -1676,6 +1895,22 @@ class SuspendPacket(object):
         # Start ARP reply wait timer.
         self.wait_thread = hub.spawn(timer, self)
 
+class LinkState(object):
+    def __init__(self,ofctl_fonction,routing_fonction,addr_data_fonction,packet_buffer_fonction):
+        super(LinkState,self).__init__()
+        #print("Lancement class LinkState")
+        self.ofctlbis = ofctl_fonction
+        self.routing_tblbis = routing_fonction
+        self.address_databis = addr_data_fonction
+        self.packet_buffer = packet_buffer_fonction
+        #self.thread = hub.spawn(self.envoie_paquet_udp(routing_fonction),self)
+        #self.thread=hub.spawn(self.envoie_paquet_udp(self.ofctlbis))
+        #self.envoie_paquet_udp(self,self.ofctlbis)
+    #def envoie_paquet_udp(self,ofctl):
+        #print("Envoie de paquet udp HELLO PACKET")
+        #self.ofctlbis2 = ofctl
+        #self.ofctlbis2=ofctl
+        #self.ofctlbis2.hello_sender()
 
 class OfCtl(object):
     _OF_VERSIONS = {}
@@ -1738,7 +1973,6 @@ class OfCtl(object):
             pkt.add_protocol(v)
         pkt.add_protocol(a)
         pkt.serialize()
-
         # Send packet out
         self.send_packet_out(in_port, output, pkt.data, data_str=str(pkt))
 
@@ -1811,19 +2045,61 @@ class OfCtl(object):
         pkt.add_protocol(i)
         pkt.add_protocol(ic)
         pkt.serialize()
-
+        #print("ICMP : Serialise ICMP")
+        #print("ICMP : IP DESTINATION : ",src_ip)
+        #print("ICMP : IP SOURCE : ", ip.src)
+        #print("ICMP : ADRESSE MAC SOURCE : ",eth.src)
+        #print("ICMP : ADRESSE MAC DESTINATION : ",eth.dst )
+        #print("ICMP : PORT SORTIE : ",in_port)
+        #print("")
         # Send packet out
         self.send_packet_out(in_port, self.dp.ofproto.OFPP_IN_PORT,
                              pkt.data, data_str=str(pkt))
+    def send_udp(self, in_port,output,vlan_id, dst_mac, src_mac,dst_ip,src_ip=None):
+        # Generate UDP Packet
+        if vlan_id != VLANID_NONE:
+            ether_proto = ether.ETH_TYPE_8021Q
+            pcp = 0
+            cfi = 0
+            vlan_ether = ether.ETH_TYPE_IP
+            v = vlan.vlan(pcp, cfi, vlan_id, vlan_ether)
+        else:
+            ether_proto = ether.ETH_TYPE_IP
 
+        pkt = packet.Packet()
+        e = ethernet.ethernet(dst_mac, src_mac, ether_proto)
+        i = ipv4.ipv4(src=src_ip,dst=dst_ip,ttl=64,proto=inet.IPPROTO_UDP)
+        dst_p=6000
+        src_p=20000
+        u = udp.udp(src_port=src_p,dst_port=dst_p)
+        pkt.add_protocol(e)
+        if vlan_id != VLANID_NONE:
+            pkt.add_protocol(v)
+        pkt.add_protocol(i)
+        pkt.add_protocol(u)
+        pkt.serialize()
+        #print("UDP : Paquet Serialize")
+        #print("UDP : VLAN ID : " ,vlan_id)
+        #print("UDP : Address MAC source : ", src_mac)
+        #print("UDP : Address MAC destination : ", dst_mac)
+        #print("UDP : Adress IP source : ", src_ip)
+        #print("UDP : Adress IP destination : ",dst_ip)
+        #print("UDP : Port Destination : ", dst_p)
+        #print("UDP : Port Source : ", src_p)
+        #print("UDP : Interface IN : ", in_port)
+        #print("UDP : Interface de sortie : ", output)
+        #print(repr(pkt))#affichage du paquet
+
+        # Send packet out
+        self.send_packet_out(4294967294, output, pkt.data, data_str=str(pkt))    
     def send_packet_out(self, in_port, output, data, data_str=None):
         actions = [self.dp.ofproto_parser.OFPActionOutput(output, 0)]
-        self.dp.send_packet_out(buffer_id=UINT32_MAX, in_port=in_port,
-                                actions=actions, data=data)
+        self.dp.send_packet_out(buffer_id=UINT32_MAX, in_port=in_port,actions=actions, data=data)
+        #print("Apres envoi du paquet", actions)
         # TODO: Packet library convert to string
-        # if data_str is None:
-        #     data_str = str(packet.Packet(data))
-        # self.logger.debug('Packet out = %s', data_str, extra=self.sw_id)
+        if data_str is None:
+            data_str = str(packet.Packet(data))
+            self.logger.debug('Packet out = %s', data_str, extra=self.sw_id)
 
     def set_normal_flow(self, cookie, priority):
         out_port = self.dp.ofproto.OFPP_NORMAL
@@ -1853,6 +2129,27 @@ class OfCtl(object):
             del waiters_per_dp[stats.xid]
 
         return msgs
+
+    def build_packet(self, dst_dpid, src_dpid, out_port):
+        #dst = '1' * 6
+        #dst = '00:00:00:00:00:01'
+        #src = '00:00:00:00:00:02' 
+        ethertype = 0x07c3
+        dst = '00:00:00:00:00:01'
+        src = '00:00:00:00:00:02' 
+        e = ethernet.ethernet(dst, src, ethertype)
+        ip = ipv4.ipv4(src='192.168.10.254', dst='192.168.10.1')
+        dst_port=6000
+        u = udp.udp(src_port=out_port,dst_port=dst_port)
+
+        p = packet.Packet()
+        p.add_protocol(e)
+        p.add_protocol(ip)
+        p.add_protocol(u)
+        p.add_protocol(out_port)
+        p.add_protocol(time.time())
+        p.serialize()
+        return p 
 
 
 @OfCtl.register_of_version(ofproto_v1_0.OFP_VERSION)
