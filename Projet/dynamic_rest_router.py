@@ -151,6 +151,8 @@ PRIORITY_IP_HANDLING = 5
 
 PRIORITY_TYPE_ROUTE = 'priority_route'
 TIMER_EXIST = False
+ma_gw = {}
+ma_topo = {}
 
 def get_priority(priority_type, vid=0, route=None):
     log_msg = None
@@ -302,7 +304,7 @@ class RestRouterAPI(app_manager.RyuApp):
     def _timeout_event_handler(self,ev):
     	if ev.msg == 'SendTimeout':
     		print("Timeout recu")
-    		RouterController.timeout_handler(ev.msg)
+    		RouterController.timeout_handler2(ev.msg)
 
 # REST command template
 def rest_command(func):
@@ -334,7 +336,7 @@ class RouterController(ControllerBase):
 
     _ROUTER_LIST = {}
     _LOGGER = None
-
+    sw_identifiant = ()
     def __init__(self, req, link, data, **config):
         super(RouterController, self).__init__(req, link, data, **config)
         self.waiters = data['waiters']
@@ -397,6 +399,235 @@ class RouterController(ControllerBase):
         	router._timeout()
         	#print(router._addr_data_retour())#affichage du retour de la fonction _addr_data_retour()
             #router._addr_data_retour()
+
+    @classmethod
+    def timeout_handler2(cls,msg):
+    	nb_router = len(cls._ROUTER_LIST)
+    	for router_id in range(len(cls._ROUTER_LIST)):
+		listt = []
+        	dp_id = router_id + 1
+        	router = cls._ROUTER_LIST[dp_id]
+        	router._timeout()
+		listt=router._addr_data_retour()
+		bon = listt[1]
+	 	for valeur in bon.values():
+		     vide = 0
+		partie1= valeur[0]
+		comp = 0
+		for valeurr in partie1.values():
+		     comp = comp +1
+		     if comp == 1:
+			new_sw_id = valeurr
+		     if comp == 2:
+			src_ip = valeurr		
+		all_cle = []
+	        compteur = 0
+		compteur2 = 10
+	        len_addresse = 0
+
+		ip = IPNetwork(src_ip)	#Obtient l addresse reseau
+	        src_ip = ip.network
+		src_ip = str(src_ip)
+	        src_ip_val = []
+	 	for number in src_ip:
+		     if number in "0123456789":
+			num = number
+        	        src_ip_val.append(int(num))
+  	        len_a = len(ma_gw) #Pour avoir la taille d'une liste
+	        if len_a == 0:
+		     ma_gw[dp_id]=[src_ip]	#Pour le premier ajout	
+		else:
+    		     for cle in ma_gw:
+			all_cle.append(cle)
+		     len_c = len(all_cle)	
+		     aa = 0
+		     while aa != len_c:
+		         cl = all_cle[aa]
+		         aa = aa +1
+		         if cl != new_sw_id :
+			     compteur = compteur +1
+
+		         if aa == dp_id :
+		             az = 0	
+		             addresse_acomparer= ma_gw.get(cle)
+		             len_addresse = len(addresse_acomparer)
+			     valeur_val = []  
+		             while az != len_addresse:
+        	    	         valeur_bien = []
+    		 	         res = addresse_acomparer[az]
+		 	         az = az +1 
+ 	    	   	         for number in res:
+        	    	             if number in "0123456789":
+			    	         num = number
+			    	         valeur_bien.append(int(num))
+        	     	         compteur2 = 0			
+          	    	         if valeur_bien != src_ip_val:
+        	    	             compteur2 = compteur2 +1	
+		         if compteur == len_c :  
+		             ma_gw[dp_id] = [src_ip]
+	   	
+    		     if compteur2 == len_addresse:
+		         ma_gw[dp_id].append(src_ip)
+
+		all_cle = []
+	        compteur = 0
+		compteur2 = 10
+	        len_addresse = 0
+		partie2= valeur[2]
+		comp = 0
+		for valeurr in partie2.values():
+		     comp = comp +1
+		     if comp == 1:
+			new_sw_id = valeurr
+		     if comp == 2:
+			src_ip = valeurr		
+		ip = IPNetwork(src_ip)	#Obtient l addresse reseau
+	        src_ip = ip.network
+		src_ip = str(src_ip)
+	        src_ip_val = []
+	 	for number in src_ip:
+		     if number in "0123456789":
+			num = number
+        	        src_ip_val.append(int(num))
+  	        len_a = len(ma_gw) #Pour avoir la taille d'une liste
+	        if len_a == 0:
+		     print('rien')	
+		else:
+    		     for cle in ma_gw:
+			all_cle.append(cle)
+		     len_c = len(all_cle)	
+		     aa = 0
+		     while aa != len_c:
+		         cl = all_cle[aa]
+		         aa = aa +1
+		         if cl != new_sw_id :
+			     compteur = compteur +1
+
+		     if aa == dp_id :
+		         az = 0	
+		         addresse_acomparer= ma_gw.get(cle)
+		         len_addresse = len(addresse_acomparer)
+			 valeur_val = []  
+		         while az != len_addresse:
+        	     	     valeur_bien = []
+    		 	     res = addresse_acomparer[az]
+		 	     az = az +1 
+ 	    	   	     for number in res:
+        	    	         if number in "0123456789":
+			    	     num = number
+			    	     valeur_bien.append(int(num))
+			     compteur2 = 0			
+          	    	     if valeur_bien != src_ip_val:
+        	    	         compteur2 = compteur2 +1
+	   	
+    		     if compteur2 == 1:
+		         ma_gw[dp_id].append(src_ip)   
+
+		all_cle = []
+	        compteur = 0
+		compteur3 = 10
+	        len_addresse = 0
+		partie3= valeur[1]
+		comp = 0
+		for valeurr in partie3.values():
+		     comp = comp +1
+		     if comp == 1:
+			new_sw_id = valeurr
+		     if comp == 2:
+			src_ip = valeurr		
+		ip = IPNetwork(src_ip)	#Obtient l addresse reseau
+	        src_ip = ip.network
+		src_ip = str(src_ip)
+	        src_ip_val = []
+	 	for number in src_ip:
+		     if number in "0123456789":
+			num = number
+        	        src_ip_val.append(int(num))
+  	        len_a = len(ma_gw) #Pour avoir la taille d'une liste
+	        if len_a == 0:
+		     print('rien')	
+		else:
+    		     for cle in ma_gw:
+			all_cle.append(cle)
+		     len_c = len(all_cle)	
+		     aa = 0
+		     while aa != len_c:
+		         cl = all_cle[aa]
+		         aa = aa +1
+		         if cl != new_sw_id :
+			     compteur = compteur +1
+
+		     if aa == dp_id :
+		         az = 0	
+		         addresse_acomparer= ma_gw.get(cle)
+		         len_addresse = len(addresse_acomparer)
+			 valeur_val = []  
+		         while az != len_addresse:
+        	     	     valeur_bien = []
+    		 	     res = addresse_acomparer[az]
+		 	     az = az +1 
+ 	    	   	     for number in res:
+        	    	         if number in "0123456789":
+			    	     num = number
+			    	     valeur_bien.append(int(num))
+			     compteur3 = 0			
+          	    	     if valeur_bien != src_ip_val:
+        	    	         compteur3 = compteur3 +1	
+	   	
+    		     if compteur3 == 1:
+		         ma_gw[dp_id].append(src_ip)  		  
+	     
+	print('============= TOPO =====================')
+	print(ma_gw)
+	print('=========== Fin TOPO =====================')
+	mettric = 1
+	voisin_mettic = {}
+	all_cle = []	
+    	for cle in ma_gw:
+    	     all_cle.append(cle)			
+ 	len_c = len(all_cle)
+	len_cc = len(all_cle)
+	for cle in all_cle:
+	     reserve = all_cle 
+	     ma_topo[cle]=[]	     
+	     addresse_comparer = []
+	     addresse_comparer= ma_gw.get(cle)
+	     len_taille = len(addresse_comparer)
+	     if len_taille == 3:
+	    	del addresse_comparer[2]			     
+	     len_taille = len(addresse_comparer)
+	     pp = 0
+	     while len_taille != 0:
+	    	addres=[]
+		valeur_bien = []
+		len_taille = len_taille-1
+    		addres= addresse_comparer[len_taille]    				     
+ 	    	for number in addres:
+        	     if number in "0123456789":
+		          num = number
+			  valeur_bien.append(int(num))
+		bb = 0
+		test_cle=[]
+		test_cle = all_cle
+		for number in test_cle :
+		     if cle != number:
+			  sw_en_cours = number
+		  	  averifier=ma_gw.get(number)
+		          len_averifier = len(averifier)
+		          zz = 0
+		          while zz != len_averifier:
+			       valeur_a_verifier_bien = []
+		               valeur_a_verifier = averifier[len_averifier-1]	
+		               for number in valeur_a_verifier:
+			            if number in "0123456789":
+		                         num = number
+			                 valeur_a_verifier_bien.append(int(num))
+			       if valeur_a_verifier_bien == valeur_bien: 
+			            ma_topo[cle].append(sw_en_cours)		
+			       len_averifier = len_averifier-1		
+	print('=================== GRAPHE =====================')
+	print(ma_topo)	
+	print('================================================')
 
     # GET /router/{switch_id}
     @rest_command
@@ -1183,7 +1414,7 @@ class VlanRouter(object):
     		#print("Dans boucle for time_out_action : ",valeur)
     		if valeur == 0 or valeur <0:
     			self.logger.info('Lien [%s] down sur le routeur',key ,extra=self.sw_id)
-    			self.dijkstra()
+    			#self.dijkstra()
 
     		#print("Affiche de la variable self link dico a la fin du timeout actions : ", self.link_dico)
 

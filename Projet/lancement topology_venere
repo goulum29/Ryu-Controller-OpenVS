@@ -34,9 +34,19 @@ curl -X POST -d '{"address":"192.168.12.1/24"}' http://localhost:8080/router/000
 curl -X POST -d '{"address":"192.168.12.2/24"}' http://localhost:8080/router/0000000000000002
 curl -X POST -d '{"address":"192.168.23.1/24"}' http://localhost:8080/router/0000000000000002
 curl -X POST -d '{"address":"192.168.23.2/24"}' http://localhost:8080/router/0000000000000003
+curl -X POST -d '{"address":"192.168.14.1/24"}' http://localhost:8080/router/0000000000000001
+curl -X POST -d '{"address":"192.168.14.2/24"}' http://localhost:8080/router/0000000000000004
+curl -X POST -d '{"address":"192.168.34.2/24"}' http://localhost:8080/router/0000000000000004
+curl -X POST -d '{"address":"192.168.34.1/24"}' http://localhost:8080/router/0000000000000003
 curl -X POST -d '{"destination": "192.168.30.0/24", "gateway": "192.168.12.2"}' http://localhost:8080/router/0000000000000001
+curl -X POST -d '{"destination": "192.168.40.0/24", "gateway": "192.168.12.2"}' http://localhost:8080/router/0000000000000001
 curl -X POST -d '{"destination": "192.168.20.0/24", "gateway": "192.168.12.2"}' http://localhost:8080/router/0000000000000001
 curl -X POST -d '{"destination": "192.168.10.0/24", "gateway": "192.168.12.1"}' http://localhost:8080/router/0000000000000002
 curl -X POST -d '{"destination": "192.168.30.0/24", "gateway": "192.168.23.2"}' http://localhost:8080/router/0000000000000002
+curl -X POST -d '{"destination": "192.168.40.0/24", "gateway": "192.168.23.2"}' http://localhost:8080/router/0000000000000002
 curl -X POST -d '{"destination": "192.168.10.0/24", "gateway": "192.168.13.1"}' http://localhost:8080/router/0000000000000003
 curl -X POST -d '{"destination": "192.168.20.0/24", "gateway": "192.168.23.1"}' http://localhost:8080/router/0000000000000003
+curl -X POST -d '{"destination": "192.168.40.0/24", "gateway": "192.168.34.2"}' http://localhost:8080/router/0000000000000003
+curl -X POST -d '{"destination": "192.168.10.0/24", "gateway": "192.168.14.1"}' http://localhost:8080/router/0000000000000004
+curl -X POST -d '{"destination": "192.168.20.0/24", "gateway": "192.168.14.1"}' http://localhost:8080/router/0000000000000004
+curl -X POST -d '{"destination": "192.168.30.0/24", "gateway": "192.168.14.1"}' http://localhost:8080/router/0000000000000004
