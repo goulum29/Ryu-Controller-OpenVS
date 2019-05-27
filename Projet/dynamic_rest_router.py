@@ -395,7 +395,7 @@ class RouterController(ControllerBase):
         	dp_id = router_id + 1
         	router = cls._ROUTER_LIST[dp_id]
         	router._timeout()
-        	print(router._addr_data_retour())#affichage du retour de la fonction _addr_data_retour()
+        	#print(router._addr_data_retour())#affichage du retour de la fonction _addr_data_retour()
             #router._addr_data_retour()
 
     # GET /router/{switch_id}
@@ -468,7 +468,9 @@ class RouterController(ControllerBase):
     	for router_id in range(len(cls._ROUTER_LIST)):
         	dp_id = router_id + 1
         	router = cls._ROUTER_LIST[dp_id]
-        	
+
+    def _dikstra(self):
+    	print("fonction _dikstra")
 
 
 class Router(dict):
