@@ -38,7 +38,6 @@ from threading import Thread
 from ryu.app import hello_event
 from ryu.app import timeout_event
 from netaddr import * 
-
 # =============================
 #          REST API
 # =============================
@@ -402,15 +401,11 @@ class RouterController(ControllerBase):
         	dp_id = router_id + 1
         	router = cls._ROUTER_LIST[dp_id]
         	router._timeout()
-        	#print(router._addr_data_retour())#affichage du retour de la fonction _addr_data_retour()
-		#print('####router_id', dp_id)
 		listt=router._addr_data_retour()
 		bon = listt[1]
-		#print('bon',str(bon))
 	 	for valeur in bon.values():
-		     print ('testt',valeur)
+		     vide = 0
 		partie1= valeur[0]
-		#print('####Partie1',partie1)
 		comp = 0
 		for valeurr in partie1.values():
 		     comp = comp +1
@@ -418,31 +413,25 @@ class RouterController(ControllerBase):
 			new_sw_id = valeurr
 		     if comp == 2:
 			src_ip = valeurr		
-		#print ('ID_SWWW',new_sw_id)
 		all_cle = []
 	        compteur = 0
 		compteur2 = 10
 	        len_addresse = 0
 
-		#print ('@@Reseau',src_ip)
 		ip = IPNetwork(src_ip)	#Obtient l addresse reseau
 	        src_ip = ip.network
 		src_ip = str(src_ip)
 	        src_ip_val = []
-		#print ('@@Reseau',src_ip)
 	 	for number in src_ip:
 		     if number in "0123456789":
 			num = number
         	        src_ip_val.append(int(num))
-	        #print("#########",src_ip_val)	
   	        len_a = len(ma_gw) #Pour avoir la taille d'une liste
 	        if len_a == 0:
-		     ma_gw[dp_id]=[src_ip]	#Pour le premier ajout
-		     #print(ma_gw)	
+		     ma_gw[dp_id]=[src_ip]	#Pour le premier ajout	
 		else:
     		     for cle in ma_gw:
 			all_cle.append(cle)
-		     #print('Toutes les cles',all_cle)
 		     len_c = len(all_cle)	
 		     aa = 0
 		     while aa != len_c:
@@ -454,35 +443,25 @@ class RouterController(ControllerBase):
 		         if aa == dp_id :
 		             az = 0	
 		             addresse_acomparer= ma_gw.get(cle)
-		             #print('YYYYYYYYYYY',addresse_acomparer)
 		             len_addresse = len(addresse_acomparer)
-			     #print('le nombre de YYYY',len_addresse)
 			     valeur_val = []  
 		             while az != len_addresse:
         	    	         valeur_bien = []
     		 	         res = addresse_acomparer[az]
 		 	         az = az +1 
-		 	         #print('########YYYY',res)
  	    	   	         for number in res:
         	    	             if number in "0123456789":
 			    	         num = number
 			    	         valeur_bien.append(int(num))
- 	    	   	         #print('=======valeurNouvelle',valeur_bien)
         	     	         compteur2 = 0			
           	    	         if valeur_bien != src_ip_val:
-        	    	             #print('=============EGALE')
-        	    	             compteur2 = compteur2 +1
-        	    	             #print('nombre d egale', compteur2)	
+        	    	             compteur2 = compteur2 +1	
 		         if compteur == len_c :  
 		             ma_gw[dp_id] = [src_ip]
 	   	
     		     if compteur2 == len_addresse:
-		         #print('#######""Nouvelleeeee')
 		         ma_gw[dp_id].append(src_ip)
-    		     
-	   	
 
-		#print(ma_gw)
 		all_cle = []
 	        compteur = 0
 		compteur2 = 10
@@ -495,26 +474,20 @@ class RouterController(ControllerBase):
 			new_sw_id = valeurr
 		     if comp == 2:
 			src_ip = valeurr		
-		#print ('ID_SWWW',new_sw_id)
-		#print ('@@Reseau',src_ip)
 		ip = IPNetwork(src_ip)	#Obtient l addresse reseau
 	        src_ip = ip.network
 		src_ip = str(src_ip)
 	        src_ip_val = []
-		#print ('@@Reseau',src_ip)
 	 	for number in src_ip:
 		     if number in "0123456789":
 			num = number
         	        src_ip_val.append(int(num))
-	        #print("#########",src_ip_val)
   	        len_a = len(ma_gw) #Pour avoir la taille d'une liste
 	        if len_a == 0:
-		     print('rien')
-		     #ma_gw[dp_id]=[src_ip]	#Pour le premier ajout	
+		     print('rien')	
 		else:
     		     for cle in ma_gw:
 			all_cle.append(cle)
-		     #print('Toutes les cles',all_cle)
 		     len_c = len(all_cle)	
 		     aa = 0
 		     while aa != len_c:
@@ -526,37 +499,28 @@ class RouterController(ControllerBase):
 		     if aa == dp_id :
 		         az = 0	
 		         addresse_acomparer= ma_gw.get(cle)
-		         #print('YYYYYYYYYYY',addresse_acomparer)
 		         len_addresse = len(addresse_acomparer)
-		         #print('le nombre de YYYY',len_addresse)
 			 valeur_val = []  
 		         while az != len_addresse:
         	     	     valeur_bien = []
     		 	     res = addresse_acomparer[az]
 		 	     az = az +1 
-		 	     #print('########YYYY',res)
  	    	   	     for number in res:
         	    	         if number in "0123456789":
 			    	     num = number
 			    	     valeur_bien.append(int(num))
- 	    	   	     #print('=======valeurNouvelle',valeur_bien)
 			     compteur2 = 0			
           	    	     if valeur_bien != src_ip_val:
-        	    	         #print('=============EGALE')
         	    	         compteur2 = compteur2 +1
-        	    	         #print('nombre d egale', compteur2)	
 	   	
     		     if compteur2 == 1:
-		         #print('#######""Nouvelleeeee')
 		         ma_gw[dp_id].append(src_ip)   
 
-		#print(ma_gw)
 		all_cle = []
 	        compteur = 0
 		compteur3 = 10
 	        len_addresse = 0
 		partie3= valeur[1]
-		#print('####Partie3',partie3)
 		comp = 0
 		for valeurr in partie3.values():
 		     comp = comp +1
@@ -564,26 +528,20 @@ class RouterController(ControllerBase):
 			new_sw_id = valeurr
 		     if comp == 2:
 			src_ip = valeurr		
-		#print ('ID_SWWW',new_sw_id)
-		#print ('@@Reseau',src_ip)
 		ip = IPNetwork(src_ip)	#Obtient l addresse reseau
 	        src_ip = ip.network
 		src_ip = str(src_ip)
 	        src_ip_val = []
-		#print ('@@Reseau',src_ip)
 	 	for number in src_ip:
 		     if number in "0123456789":
 			num = number
         	        src_ip_val.append(int(num))
-	        #print("#########",src_ip_val)
   	        len_a = len(ma_gw) #Pour avoir la taille d'une liste
 	        if len_a == 0:
-		     print('rien')
-		     #ma_gw[dp_id]=[src_ip]	#Pour le premier ajout	
+		     print('rien')	
 		else:
     		     for cle in ma_gw:
 			all_cle.append(cle)
-		     #print('Toutes les cles',all_cle)
 		     len_c = len(all_cle)	
 		     aa = 0
 		     while aa != len_c:
@@ -595,93 +553,70 @@ class RouterController(ControllerBase):
 		     if aa == dp_id :
 		         az = 0	
 		         addresse_acomparer= ma_gw.get(cle)
-		         #print('YYYYYYYYYYY',addresse_acomparer)
 		         len_addresse = len(addresse_acomparer)
-		         #print('le nombre de YYYY',len_addresse)
 			 valeur_val = []  
 		         while az != len_addresse:
         	     	     valeur_bien = []
     		 	     res = addresse_acomparer[az]
 		 	     az = az +1 
-		 	     #print('########YYYY',res)
  	    	   	     for number in res:
         	    	         if number in "0123456789":
 			    	     num = number
 			    	     valeur_bien.append(int(num))
- 	    	   	     #print('=======valeurNouvelle',valeur_bien)
 			     compteur3 = 0			
           	    	     if valeur_bien != src_ip_val:
-        	    	         #print('=============EGALE')
-        	    	         compteur3 = compteur3 +1
-        	    	         #print('nombre d egale', compteur3)	
+        	    	         compteur3 = compteur3 +1	
 	   	
     		     if compteur3 == 1:
-		         #print('#######""Nouvelleeeee')
 		         ma_gw[dp_id].append(src_ip)  		  
 	     
-	    	print('============= TOPO =====================')
-	    	print(ma_gw)
-	    	print('=========== Fin TOPO =====================')
-
+	print('============= TOPO =====================')
+	print(ma_gw)
+	print('=========== Fin TOPO =====================')
+	mettric = 1
+	voisin_mettic = {}
 	all_cle = []	
     	for cle in ma_gw:
-    	     all_cle.append(cle)
-	#print('Toutes les cles',all_cle)			
+    	     all_cle.append(cle)			
  	len_c = len(all_cle)
 	len_cc = len(all_cle)
-	#print('Tailles cles',len_c)
 	for cle in all_cle:
 	     reserve = all_cle 
-	     #print('la cle en traitement', cle)
 	     ma_topo[cle]=[]	     
 	     addresse_comparer = []
 	     addresse_comparer= ma_gw.get(cle)
-	     #print('les addresse de la cle', addresse_comparer)
 	     len_taille = len(addresse_comparer)
 	     if len_taille == 3:
 	    	del addresse_comparer[2]			     
 	     len_taille = len(addresse_comparer)
-	     #print('nombre de valeur',len_taille)
 	     pp = 0
 	     while len_taille != 0:
 	    	addres=[]
 		valeur_bien = []
 		len_taille = len_taille-1
-    		addres= addresse_comparer[len_taille]    				    
-  		#print('addresse',addres) 
+    		addres= addresse_comparer[len_taille]    				     
  	    	for number in addres:
         	     if number in "0123456789":
 		          num = number
 			  valeur_bien.append(int(num))
- 	    	#print('=======valeurNouvelle',valeur_bien)
 		bb = 0
 		test_cle=[]
 		test_cle = all_cle
- 
-		#print('cle a verfier',test_cle)
 		for number in test_cle :
 		     if cle != number:
-		          #print('verif avec sw id',number)
 			  sw_en_cours = number
 		  	  averifier=ma_gw.get(number)
-	  	          #print('les addresses du sw en verif',averifier)
 		          len_averifier = len(averifier)
-		          #print(len_averifier)
 		          zz = 0
 		          while zz != len_averifier:
 			       valeur_a_verifier_bien = []
-		               #print('biennn', len_averifier)
 		               valeur_a_verifier = averifier[len_averifier-1]	
-		               #print('addresse en verif',valeur_a_verifier)
 		               for number in valeur_a_verifier:
 			            if number in "0123456789":
 		                         num = number
 			                 valeur_a_verifier_bien.append(int(num))
-		               #print('=======valeurNouvelle',valeur_a_verifier_bien)
-			       if valeur_a_verifier_bien == valeur_bien:
-			            #print('VOISINS','sw_source',cle,'vers_sw',sw_en_cours)
-			            ma_topo[cle].append(sw_en_cours)
-			            #print(ma_topo)			
+			       if valeur_a_verifier_bien == valeur_bien: 
+			            ma_topo[cle].append(sw_en_cours)		
 			       len_averifier = len_averifier-1		
 	print('=================== GRAPHE =====================')
 	print(ma_topo)	
@@ -1672,98 +1607,7 @@ class VlanRouter(object):
         self.logger.debug('Receive packet from unknown IP[%s].',
                           ip_addr_ntoa(src_ip), extra=self.sw_id)
         return None
-    
-    """def dijkstra(self):
-
-   	TableDeRoutage = self.routing_tbl
-	print('#######TableDeRoutage',TableDeRoutage)
-	gateways = self.routing_tbl.get_gateways()
-	print('#######TableDegateways',gateways)
-	route = self.routing_tbl.get_data()
-	print('#######TableDeroute',route)
-        for gateway in gateways:
-            address = self.address_data.get_data(ip=gateway)
-            #print("Variable address.default_gw sera utilise comme ip source:",address.default_gw)
-            #print("Variable gateway sera utilise comme ip de destination :",gateway)
-            src_ip = address.default_gw
-	    print('#######TableDesrc_ip',src_ip)
-	    sw_id= self.sw_id	
-	    sw_id_recu= self.sw_idd
-	    print (sw_id_recu)
-	    sw_id_recu = list(sw_id_recu)
-	    sw_id_recu = sw_id_recu[0]
-	    for numbers in sw_id_recu:
-    		if numbers !='0':
-        	    new_sw_id =  numbers
-       		    print("=======>>> Numero du switch :",new_sw_id) #Donnees entrantes
- 
-	    netmask = '24'		#A changer par le reel(variable)
-	    tout = src_ip+"/" +netmask
-	    ip = IPNetwork(tout)	#Obtient l addresse reseau
-	    src_ip = ip.network
-	    src_ipp = str(src_ip)
-	    src_ip_val = []
-	    print("=======>>@reseau de l intreface",src_ipp)
-	    for number in src_ipp:
-    		if number in "0123456789":
-        	    num = number
-        	    src_ip_val.append(int(num))
-	    print("#########",src_ip_val)
-	    taille_ipaddr = []
-	    all_cle = []
-	    indic = bool
-	    indic2 = bool
-	    compteur = 0
-	    compteur1 = 0
-	    compteur2 = 10
-	    len_addresse = 0
-  	    len_a = len(self.ma_gw) #Pour avoir la taille d'une liste
-	    if len_a == 0:
-    		self.ma_gw[new_sw_id]=[src_ipp]	#Pour le premier ajout
-	    else:
-    		for cle in self.ma_gw:
-		    all_cle.append(cle)
-		print('Toutes les cles',all_cle)
-		len_c = len(all_cle)
-		aa = 0
-		while aa != len_c:
-		    cl = all_cle[aa]
-		    aa = aa +1
-		    if cl != new_sw_id :
-			compteur = compteur +1
-		if compteur == len_c :  
-		    self.ma_gw[new_sw_id] = [src_ipp]
-	   	if cle == new_sw_id : 
-		    compteur2 = 0
-		    az = 0	
-		    addresse_acomparer= self.ma_gw.get(cle)
-		    print('YYYYYYYYYYY',addresse_acomparer)
-		    len_addresse = len(addresse_acomparer)
-		    print('le nombre de YYYY',len_addresse)
-		    valeur_val = [] 
-		    while az != len_addresse:
-        	     	valeur_bien = []
-    		 	res = addresse_acomparer[az]
-		 	az = az +1 
-		 	print('########YYYY',res)
- 	    	   	for number in res:
-        	    	    if number in "0123456789":
-			    	num = number
-			    	valeur_bien.append(int(num))
-        	    	print('=======valeurNouvelle',valeur_bien)			
-          	    	if valeur_bien != src_ip_val:
-			    print('=============EGALE')
-			    compteur2 = compteur2 +1
-			    print('nombre d egale', compteur2)	
-	   	
-	    if compteur2 == len_addresse:
-		print('#######""Nouvelleeeee')
-		self.ma_gw[new_sw_id].append(src_ipp)	
-	    print('============= TOPO =====================')
-	    print('-----------------------------------------')
-	    print(self.ma_gw)
-	    print('------------------------------------------')
-	    print('=========== Fin TOPO =====================')  """      
+       
 class PortData(dict):
     def __init__(self, ports):
         super(PortData, self).__init__()
